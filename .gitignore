@@ -13,3 +13,11 @@ build/
 exports/runs/latest.json
 exports/runs/timeline.csv
 .DS_Store
+unity/Playtest/Library/
+unity/Playtest/Temp/
+unity/Playtest/Obj/
+unity/Playtest/Logs/
+unity/Playtest/UserSettings/
+unity/Playtest/*.csproj
+unity/Playtest/*.sln
+unity/Playtest/.vs/
