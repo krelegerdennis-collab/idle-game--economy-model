@@ -1,13 +1,16 @@
 {
-  "notes": "Milestones multiply a generator's whole stack at owned thresholds. The peak_contract branch cuts active production immediately. Its peak applies once total owned copies reach peak_total_owned_at_least. The offer closes when total owned reaches commit_threshold = base + floor(total_owned / owned_divisor), and also once the peak is already active. ROI integrates production over roi_horizon_minutes.",
+  "notes": "Milestones multiply a generator's whole stack at owned thresholds. peak_contract is a multi-stage ladder. Each stage multiplies production by active_production_multiplier (a 3% cut per stage; five stages land near 0.85). At the peak, the multiplier is that dip times peak_production_multiplier + peak_multiplier_per_stage * level. Level 5 is 1.8 + 0.75 = 2.55 before peak_net_cap binds. The offer for the next stage closes when total owned reaches commit_threshold = base + floor(total_owned / owned_divisor), and also once the peak is already active. ROI integrates production over roi_horizon_minutes, one stage at a time.",
   "branches": [
     {
       "id": "peak_contract",
-      "cost_base": 25000,
-      "growth_rate": 1.15,
-      "max_level": 1,
-      "active_production_multiplier": 0.7,
+      "structure": "multi_stage",
+      "cost_base": 5000,
+      "growth_rate": 1,
+      "max_level": 5,
+      "active_production_multiplier": 0.97,
       "peak_production_multiplier": 1.8,
+      "peak_multiplier_per_stage": 0.15,
+      "peak_net_cap": 1.26,
       "peak_total_owned_at_least": 68,
       "commit_threshold_formula": {
         "base": 50,

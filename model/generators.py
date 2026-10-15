@@ -42,11 +42,18 @@ class CommitThresholdFormula:
 class Branch:
     """A purchased modifier that competes with buying the next generator.
 
-    `active_production_multiplier` applies as soon as the branch is owned and
-    must be below 1. `peak_production_multiplier` applies only once total
-    generator copies reach `peak_total_owned_at_least`. The offer stays open
-    while total owned is still under `commit_threshold` and under that peak,
-    so the purchase is only available while its immediate effect is a penalty.
+    `structure` is `single` or `multi_stage`. A single purchase applies
+    `active_production_multiplier` immediately and `peak_production_multiplier`
+    once total generator copies reach `peak_total_owned_at_least`.
+
+    A multi-stage contract is a ladder of purchases. Level n multiplies
+    production by `active_production_multiplier` ** n until the peak. At the
+    peak the multiplier is that dip times
+    `peak_production_multiplier + peak_multiplier_per_stage * n`. Once n
+    reaches `max_level`, the result is capped by `peak_net_cap`.
+
+    The offer stays open while total owned is still under `commit_threshold`
+    and under the peak, so a new stage is only available before the peak.
     """
 
     id: str
@@ -57,10 +64,35 @@ class Branch:
     peak_production_multiplier: float
     peak_total_owned_at_least: int
     commit_threshold_formula: CommitThresholdFormula
+    structure: str = "single"
+    peak_multiplier_per_stage: float = 0.0
+    peak_net_cap: float | None = None
 
     @property
     def peak_net_multiplier(self) -> float:
+        if self.structure == "multi_stage" and self.peak_net_cap is not None:
+            return self.peak_net_cap
         return self.active_production_multiplier * self.peak_production_multiplier
+
+    def applied_multiplier(self, level: int, total_owned: int) -> float:
+        """Production factor for `level` owned stages at this copy count."""
+        if level <= 0:
+            return 1.0
+        if level > self.max_level:
+            raise ValueError(f"{self.id} level {level} is above max_level {self.max_level}")
+        if self.structure == "multi_stage":
+            dip = self.active_production_multiplier ** level
+            if total_owned < self.peak_total_owned_at_least:
+                return dip
+            peak = self.peak_production_multiplier + self.peak_multiplier_per_stage * level
+            raw = dip * peak
+            if self.peak_net_cap is not None and level >= self.max_level:
+                return min(raw, self.peak_net_cap)
+            return raw
+        multiplier = self.active_production_multiplier ** level
+        if total_owned >= self.peak_total_owned_at_least:
+            multiplier *= self.peak_production_multiplier ** level
+        return multiplier
 
 
 @dataclass(frozen=True)
@@ -98,13 +130,19 @@ def offer_is_open(branch: Branch, total_owned: int) -> bool:
 
 
 def cost_next(cost_base: float, growth_rate: float, owned: int) -> float:
-    """Next copy costs cost_base × growth_rate^owned."""
+    """Next copy costs cost_base × growth_rate^owned.
+
+    A growth rate of 1 is a flat price. Generators reject that in the loader.
+    A multi-stage contract may use it because max_level bounds the spend.
+    """
     if owned < 0:
         raise ValueError("owned must be >= 0")
-    if growth_rate <= 1:
-        raise ValueError("growth_rate must be > 1 so cost scales exponentially")
+    if growth_rate < 1:
+        raise ValueError("growth_rate must be >= 1")
     if cost_base <= 0:
         raise ValueError("cost_base must be > 0")
+    if growth_rate == 1:
+        return float(cost_base)
     return float(cost_base) * float(growth_rate) ** int(owned)
 
 
@@ -140,9 +178,7 @@ def generator_branch_multiplier(
         level = levels.get(branch.id, 0)
         if level <= 0:
             continue
-        multiplier *= branch.active_production_multiplier ** level
-        if total_owned >= branch.peak_total_owned_at_least:
-            multiplier *= branch.peak_production_multiplier ** level
+        multiplier *= branch.applied_multiplier(level, total_owned)
     return multiplier
 
 
