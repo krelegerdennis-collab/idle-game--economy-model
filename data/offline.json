@@ -1,0 +1,6 @@
+{
+  "notes": "Cadence = waking_hours / cap_hours. A 3 hour cap across 16.5 waking hours is 5.5 check-ins. offline_rate is the maximum allowed 0.5.",
+  "offline_rate": 0.5,
+  "cap_hours": 3,
+  "waking_hours": 16.5
+}

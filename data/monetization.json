@@ -1,0 +1,7 @@
+{
+  "notes": "The offer is optional. default_action declines it. Do not tune the boost to carry a player who cannot reach the wall for free.",
+  "every_nth_prestige": 3,
+  "optional_boost_multiplier": 2,
+  "optional_boost_seconds": 600,
+  "default_action": "decline_offer"
+}

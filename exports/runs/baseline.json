@@ -1,0 +1,1820 @@
+{
+  "data_fingerprint": "ee9733b90aef",
+  "policy": "roi",
+  "stopped_on": "prestige_wall",
+  "prestige_wall_seconds": 5794.274988,
+  "prestige_wall_minutes": 96.57125,
+  "lifetime_currency_at_wall": 46882845.351257,
+  "points_gained": 1,
+  "multiplier_after_prestige": 1.6,
+  "waiting_on": "generator_6",
+  "wait_seconds": 735.970698,
+  "production_per_second_at_wall": 18343.1216,
+  "owned_at_wall": {
+    "generator_1": 57,
+    "generator_2": 47,
+    "generator_3": 43,
+    "generator_4": 38,
+    "generator_5": 18,
+    "generator_6": 0
+  },
+  "owned_final": {
+    "generator_1": 57,
+    "generator_2": 47,
+    "generator_3": 43,
+    "generator_4": 38,
+    "generator_5": 18,
+    "generator_6": 0
+  },
+  "unlock_order": [
+    "generator_1",
+    "generator_2",
+    "generator_3",
+    "generator_4",
+    "generator_5"
+  ],
+  "purchase_agreement": 0.99,
+  "route_shares": {
+    "linear": 0.65,
+    "peak_contract": 0.35
+  },
+  "dominant_route": "linear",
+  "dominant_route_share": 0.65,
+  "route_walls": {
+    "linear": 96.57125,
+    "peak_contract": 99.014904
+  },
+  "route_progress": {
+    "linear": {
+      "resets_to_10x": 3,
+      "first_wall_minutes": 96.57125,
+      "second_run_minutes": 124.919353,
+      "time_to_second_prestige_minutes": 221.490603,
+      "multiplier": 720.57594,
+      "stopped_on": "multiplier"
+    },
+    "peak": {
+      "resets_to_10x": 2,
+      "first_wall_minutes": 99.014904,
+      "second_run_minutes": 206.113634,
+      "time_to_second_prestige_minutes": 305.128538,
+      "multiplier": 16.777216,
+      "stopped_on": "multiplier"
+    }
+  },
+  "purchase_count": 203,
+  "session_cadence": 5.5,
+  "retention": {
+    "d1": 0.4062,
+    "d7": 0.193429,
+    "d30": 0.08,
+    "session_cadence": 5.5
+  },
+  "retention_factors": {
+    "wall_factor": 0.967144,
+    "cadence_factor": 1.0,
+    "reward_factor": 1.0,
+    "legibility_factor": 1.0
+  },
+  "monetization_gate": {
+    "active": true,
+    "reason": "first_prestige_wall",
+    "upcoming_prestige_number": 1,
+    "optional": true,
+    "default_action": "decline_offer"
+  },
+  "free_path": "decline_offer",
+  "constraints": {
+    "ok": true,
+    "failures": []
+  },
+  "timeline": [
+    {
+      "t_seconds": 0.0,
+      "currency": 4.0,
+      "lifetime_currency": 0.0,
+      "production_per_second": 0.0976,
+      "owned": {
+        "generator_1": 0,
+        "generator_2": 0,
+        "generator_3": 0,
+        "generator_4": 0,
+        "generator_5": 0,
+        "generator_6": 0
+      }
+    },
+    {
+      "t_seconds": 300.0,
+      "currency": 72.2275,
+      "lifetime_currency": 579.7826,
+      "production_per_second": 7.6696,
+      "owned": {
+        "generator_1": 14,
+        "generator_2": 4,
+        "generator_3": 0,
+        "generator_4": 0,
+        "generator_5": 0,
+        "generator_6": 0
+      }
+    },
+    {
+      "t_seconds": 600.0,
+      "currency": 311.9682,
+      "lifetime_currency": 6465.6985,
+      "production_per_second": 48.0216,
+      "owned": {
+        "generator_1": 18,
+        "generator_2": 8,
+        "generator_3": 4,
+        "generator_4": 0,
+        "generator_5": 0,
+        "generator_6": 0
+      }
+    },
+    {
+      "t_seconds": 900.0,
+      "currency": 4217.6059,
+      "lifetime_currency": 32212.6727,
+      "production_per_second": 159.9176,
+      "owned": {
+        "generator_1": 20,
+        "generator_2": 15,
+        "generator_3": 6,
+        "generator_4": 1,
+        "generator_5": 0,
+        "generator_6": 0
+      }
+    },
+    {
+      "t_seconds": 1200.0,
+      "currency": 3340.0429,
+      "lifetime_currency": 110600.2364,
+      "production_per_second": 515.8816,
+      "owned": {
+        "generator_1": 22,
+        "generator_2": 17,
+        "generator_3": 11,
+        "generator_4": 4,
+        "generator_5": 0,
+        "generator_6": 0
+      }
+    },
+    {
+      "t_seconds": 1500.0,
+      "currency": 29751.6118,
+      "lifetime_currency": 331246.3817,
+      "production_per_second": 940.3296,
+      "owned": {
+        "generator_1": 32,
+        "generator_2": 22,
+        "generator_3": 18,
+        "generator_4": 8,
+        "generator_5": 0,
+        "generator_6": 0
+      }
+    },
+    {
+      "t_seconds": 1800.0,
+      "currency": 9442.3687,
+      "lifetime_currency": 885357.2618,
+      "production_per_second": 2598.9936,
+      "owned": {
+        "generator_1": 34,
+        "generator_2": 29,
+        "generator_3": 20,
+        "generator_4": 15,
+        "generator_5": 0,
+        "generator_6": 0
+      }
+    },
+    {
+      "t_seconds": 2100.0,
+      "currency": 39052.2889,
+      "lifetime_currency": 1787838.5058,
+      "production_per_second": 3807.3656,
+      "owned": {
+        "generator_1": 37,
+        "generator_2": 32,
+        "generator_3": 28,
+        "generator_4": 19,
+        "generator_5": 0,
+        "generator_6": 0
+      }
+    },
+    {
+      "t_seconds": 2400.0,
+      "currency": 5600.6909,
+      "lifetime_currency": 3023396.8271,
+      "production_per_second": 4512.3776,
+      "owned": {
+        "generator_1": 40,
+        "generator_2": 35,
+        "generator_3": 31,
+        "generator_4": 22,
+        "generator_5": 1,
+        "generator_6": 0
+      }
+    },
+    {
+      "t_seconds": 2700.0,
+      "currency": 169579.3066,
+      "lifetime_currency": 4451296.0322,
+      "production_per_second": 5060.4656,
+      "owned": {
+        "generator_1": 42,
+        "generator_2": 37,
+        "generator_3": 33,
+        "generator_4": 23,
+        "generator_5": 3,
+        "generator_6": 0
+      }
+    },
+    {
+      "t_seconds": 3000.0,
+      "currency": 440612.1287,
+      "lifetime_currency": 6671233.4022,
+      "production_per_second": 9415.3456,
+      "owned": {
+        "generator_1": 42,
+        "generator_2": 37,
+        "generator_3": 33,
+        "generator_4": 27,
+        "generator_5": 3,
+        "generator_6": 0
+      }
+    },
+    {
+      "t_seconds": 3300.0,
+      "currency": 879376.7434,
+      "lifetime_currency": 9671056.4801,
+      "production_per_second": 10344.9896,
+      "owned": {
+        "generator_1": 43,
+        "generator_2": 38,
+        "generator_3": 34,
+        "generator_4": 29,
+        "generator_5": 5,
+        "generator_6": 0
+      }
+    },
+    {
+      "t_seconds": 3600.0,
+      "currency": 650879.8671,
+      "lifetime_currency": 12958855.709,
+      "production_per_second": 11314.5176,
+      "owned": {
+        "generator_1": 45,
+        "generator_2": 40,
+        "generator_3": 36,
+        "generator_4": 31,
+        "generator_5": 7,
+        "generator_6": 0
+      }
+    },
+    {
+      "t_seconds": 3900.0,
+      "currency": 436826.237,
+      "lifetime_currency": 16477396.8191,
+      "production_per_second": 12120.1256,
+      "owned": {
+        "generator_1": 47,
+        "generator_2": 42,
+        "generator_3": 38,
+        "generator_4": 33,
+        "generator_5": 8,
+        "generator_6": 0
+      }
+    },
+    {
+      "t_seconds": 4200.0,
+      "currency": 1272216.1439,
+      "lifetime_currency": 20499523.793,
+      "production_per_second": 14415.0056,
+      "owned": {
+        "generator_1": 47,
+        "generator_2": 42,
+        "generator_3": 38,
+        "generator_4": 33,
+        "generator_5": 11,
+        "generator_6": 0
+      }
+    },
+    {
+      "t_seconds": 4500.0,
+      "currency": 1194201.9022,
+      "lifetime_currency": 25001275.3154,
+      "production_per_second": 15351.6456,
+      "owned": {
+        "generator_1": 47,
+        "generator_2": 42,
+        "generator_3": 38,
+        "generator_4": 34,
+        "generator_5": 13,
+        "generator_6": 0
+      }
+    },
+    {
+      "t_seconds": 4800.0,
+      "currency": 2041951.7408,
+      "lifetime_currency": 29736820.766,
+      "production_per_second": 16000.3296,
+      "owned": {
+        "generator_1": 48,
+        "generator_2": 43,
+        "generator_3": 39,
+        "generator_4": 35,
+        "generator_5": 14,
+        "generator_6": 0
+      }
+    },
+    {
+      "t_seconds": 5100.0,
+      "currency": 63545.9373,
+      "lifetime_currency": 34695912.0802,
+      "production_per_second": 17004.4656,
+      "owned": {
+        "generator_1": 54,
+        "generator_2": 44,
+        "generator_3": 40,
+        "generator_4": 36,
+        "generator_5": 16,
+        "generator_6": 0
+      }
+    },
+    {
+      "t_seconds": 5400.0,
+      "currency": 2512956.1847,
+      "lifetime_currency": 39849625.587,
+      "production_per_second": 17325.7776,
+      "owned": {
+        "generator_1": 55,
+        "generator_2": 45,
+        "generator_3": 41,
+        "generator_4": 37,
+        "generator_5": 16,
+        "generator_6": 0
+      }
+    },
+    {
+      "t_seconds": 5700.0,
+      "currency": 1927077.0507,
+      "lifetime_currency": 45180981.4632,
+      "production_per_second": 17974.9296,
+      "owned": {
+        "generator_1": 56,
+        "generator_2": 46,
+        "generator_3": 42,
+        "generator_4": 38,
+        "generator_5": 17,
+        "generator_6": 0
+      }
+    }
+  ],
+  "events": [
+    {
+      "name": "session_begin",
+      "session_index": 0,
+      "seconds_since_last": 0,
+      "prestige_count": 0
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 1,
+      "cost": 4.0,
+      "active_seconds": 0.0
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 2,
+      "cost": 4.6,
+      "active_seconds": 21.4352
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 3,
+      "cost": 5.29,
+      "active_seconds": 37.3882
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 4,
+      "cost": 6.0835,
+      "active_seconds": 50.9493
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 5,
+      "cost": 6.996025,
+      "active_seconds": 63.3185
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 1,
+      "cost": 70.0,
+      "active_seconds": 165.8675
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 6,
+      "cost": 8.045429,
+      "active_seconds": 170.4477
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 2,
+      "cost": 80.5,
+      "active_seconds": 213.4131
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 7,
+      "cost": 9.252243,
+      "active_seconds": 216.552
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 3,
+      "cost": 92.575,
+      "active_seconds": 246.7598
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 8,
+      "cost": 10.64008,
+      "active_seconds": 249.3308
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 4,
+      "cost": 106.46125,
+      "active_seconds": 274.3475
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 9,
+      "cost": 12.236091,
+      "active_seconds": 276.6434
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 10,
+      "cost": 14.071505,
+      "active_seconds": 279.2269
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 11,
+      "cost": 16.182231,
+      "active_seconds": 281.6301
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 12,
+      "cost": 18.609566,
+      "active_seconds": 284.301
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 13,
+      "cost": 21.401,
+      "active_seconds": 287.2727
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 14,
+      "cost": 24.61115,
+      "active_seconds": 290.5826
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 1,
+      "cost": 980.0,
+      "active_seconds": 418.3598
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 5,
+      "cost": 122.430437,
+      "active_seconds": 425.8026
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 15,
+      "cost": 28.302823,
+      "active_seconds": 427.4177
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 2,
+      "cost": 1127.0,
+      "active_seconds": 490.8835
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 6,
+      "cost": 140.795003,
+      "active_seconds": 496.189
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 16,
+      "cost": 32.548247,
+      "active_seconds": 497.3678
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 3,
+      "cost": 1296.05,
+      "active_seconds": 543.9119
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 7,
+      "cost": 161.914254,
+      "active_seconds": 548.3327
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 17,
+      "cost": 37.430483,
+      "active_seconds": 549.3256
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 4,
+      "cost": 1490.4575,
+      "active_seconds": 588.6168
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 8,
+      "cost": 186.201392,
+      "active_seconds": 592.6028
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 18,
+      "cost": 43.045056,
+      "active_seconds": 593.5036
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 5,
+      "cost": 1714.026125,
+      "active_seconds": 629.1964
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 9,
+      "cost": 214.1316,
+      "active_seconds": 632.9662
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 10,
+      "cost": 246.25134,
+      "active_seconds": 637.2211
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 11,
+      "cost": 283.189041,
+      "active_seconds": 641.2846
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 12,
+      "cost": 325.667398,
+      "active_seconds": 645.818
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 13,
+      "cost": 374.517507,
+      "active_seconds": 650.88
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 14,
+      "cost": 430.695133,
+      "active_seconds": 656.5371
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 19,
+      "cost": 49.501814,
+      "active_seconds": 657.1695
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 1,
+      "cost": 15680.0,
+      "active_seconds": 856.875
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 6,
+      "cost": 1971.130044,
+      "active_seconds": 870.1258
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 15,
+      "cost": 495.299404,
+      "active_seconds": 873.2699
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 20,
+      "cost": 56.927087,
+      "active_seconds": 873.6264
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 2,
+      "cost": 18032.0,
+      "active_seconds": 986.3845
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 7,
+      "cost": 2266.79955,
+      "active_seconds": 996.2334
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 16,
+      "cost": 569.594314,
+      "active_seconds": 998.6172
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 21,
+      "cost": 65.46615,
+      "active_seconds": 998.8888
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 3,
+      "cost": 20736.8,
+      "active_seconds": 1084.8196
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 8,
+      "cost": 2606.819483,
+      "active_seconds": 1093.1866
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 17,
+      "cost": 655.033461,
+      "active_seconds": 1095.2314
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 22,
+      "cost": 75.286072,
+      "active_seconds": 1095.4649
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 4,
+      "cost": 23847.32,
+      "active_seconds": 1169.3593
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 9,
+      "cost": 2997.842405,
+      "active_seconds": 1176.9881
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 10,
+      "cost": 3447.518766,
+      "active_seconds": 1185.5696
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 11,
+      "cost": 3964.646581,
+      "active_seconds": 1193.5256
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 12,
+      "cost": 4559.343568,
+      "active_seconds": 1202.3635
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 13,
+      "cost": 5243.245103,
+      "active_seconds": 1212.1926
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 14,
+      "cost": 6029.731869,
+      "active_seconds": 1223.1358
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 18,
+      "cost": 753.28848,
+      "active_seconds": 1224.4607
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 23,
+      "cost": 86.578983,
+      "active_seconds": 1224.6124
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 5,
+      "cost": 27424.418,
+      "active_seconds": 1272.6459
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 15,
+      "cost": 6934.191649,
+      "active_seconds": 1283.4606
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 19,
+      "cost": 866.281752,
+      "active_seconds": 1284.7757
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 24,
+      "cost": 99.56583,
+      "active_seconds": 1284.9263
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 25,
+      "cost": 114.500705,
+      "active_seconds": 1285.0995
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 26,
+      "cost": 131.67581,
+      "active_seconds": 1285.2969
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 27,
+      "cost": 151.427182,
+      "active_seconds": 1285.5237
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 28,
+      "cost": 174.141259,
+      "active_seconds": 1285.7843
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 29,
+      "cost": 200.262448,
+      "active_seconds": 1286.0838
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 6,
+      "cost": 31538.0807,
+      "active_seconds": 1333.2202
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 16,
+      "cost": 7974.320397,
+      "active_seconds": 1344.0062
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 20,
+      "cost": 996.224015,
+      "active_seconds": 1345.3224
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 30,
+      "cost": 230.301816,
+      "active_seconds": 1345.6258
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 7,
+      "cost": 36268.792805,
+      "active_seconds": 1393.3795
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 17,
+      "cost": 9170.468456,
+      "active_seconds": 1404.4317
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 21,
+      "cost": 1145.657618,
+      "active_seconds": 1405.7839
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 31,
+      "cost": 264.847088,
+      "active_seconds": 1406.0957
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 8,
+      "cost": 41709.111726,
+      "active_seconds": 1455.1702
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 18,
+      "cost": 10546.038724,
+      "active_seconds": 1466.6314
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 22,
+      "cost": 1317.50626,
+      "active_seconds": 1468.0364
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 32,
+      "cost": 304.574151,
+      "active_seconds": 1468.3604
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 9,
+      "cost": 47965.478485,
+      "active_seconds": 1519.3697
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 10,
+      "cost": 55160.300257,
+      "active_seconds": 1573.953
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 11,
+      "cost": 63434.345296,
+      "active_seconds": 1609.5262
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 12,
+      "cost": 72949.49709,
+      "active_seconds": 1647.4478
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 13,
+      "cost": 83891.921654,
+      "active_seconds": 1688.0898
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 14,
+      "cost": 96475.709902,
+      "active_seconds": 1731.8499
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 19,
+      "cost": 12127.944533,
+      "active_seconds": 1737.0215
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 23,
+      "cost": 1515.132199,
+      "active_seconds": 1737.6627
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 33,
+      "cost": 350.260274,
+      "active_seconds": 1737.8108
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 15,
+      "cost": 110947.066387,
+      "active_seconds": 1784.7169
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 20,
+      "cost": 13947.136213,
+      "active_seconds": 1790.2828
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 24,
+      "cost": 1742.402029,
+      "active_seconds": 1790.9733
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 25,
+      "cost": 2003.762333,
+      "active_seconds": 1791.7668
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 26,
+      "cost": 2304.326683,
+      "active_seconds": 1792.6594
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 27,
+      "cost": 2649.975686,
+      "active_seconds": 1793.6843
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 28,
+      "cost": 3047.472039,
+      "active_seconds": 1794.861
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 29,
+      "cost": 3504.592845,
+      "active_seconds": 1796.2119
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 34,
+      "cost": 402.799315,
+      "active_seconds": 1796.3669
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 16,
+      "cost": 127589.126345,
+      "active_seconds": 1845.4587
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 21,
+      "cost": 16039.206645,
+      "active_seconds": 1851.3135
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 30,
+      "cost": 4030.281771,
+      "active_seconds": 1852.7753
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 35,
+      "cost": 463.219212,
+      "active_seconds": 1852.9431
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 17,
+      "cost": 146727.495297,
+      "active_seconds": 1906.0706
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 22,
+      "cost": 18445.087642,
+      "active_seconds": 1912.426
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 31,
+      "cost": 4634.824037,
+      "active_seconds": 1914.0134
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 36,
+      "cost": 532.702094,
+      "active_seconds": 1914.1955
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 18,
+      "cost": 168736.619592,
+      "active_seconds": 1971.8911
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 23,
+      "cost": 21211.850788,
+      "active_seconds": 1978.8116
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 32,
+      "cost": 5330.047643,
+      "active_seconds": 1980.5407
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 37,
+      "cost": 612.607408,
+      "active_seconds": 1980.7391
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 19,
+      "cost": 194047.11253,
+      "active_seconds": 2043.5903
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 24,
+      "cost": 24393.628406,
+      "active_seconds": 2051.1474
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 25,
+      "cost": 28052.672667,
+      "active_seconds": 2059.7912
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 26,
+      "cost": 32260.573567,
+      "active_seconds": 2068.5055
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 27,
+      "cost": 37099.659603,
+      "active_seconds": 2078.4328
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 28,
+      "cost": 42664.608543,
+      "active_seconds": 2089.743
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 29,
+      "cost": 49064.299824,
+      "active_seconds": 2102.6296
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 33,
+      "cost": 6129.554789,
+      "active_seconds": 2104.2248
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 38,
+      "cost": 704.498519,
+      "active_seconds": 2104.408
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 20,
+      "cost": 223154.17941,
+      "active_seconds": 2162.4115
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 30,
+      "cost": 56423.944798,
+      "active_seconds": 2176.5609
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 34,
+      "cost": 7048.988007,
+      "active_seconds": 2178.3132
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 39,
+      "cost": 810.173297,
+      "active_seconds": 2178.5144
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 21,
+      "cost": 256627.306321,
+      "active_seconds": 2242.2313
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_5",
+      "owned_after": 1,
+      "cost": 300000.0,
+      "active_seconds": 2314.2067
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 31,
+      "cost": 64887.536518,
+      "active_seconds": 2329.1853
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 35,
+      "cost": 8106.336208,
+      "active_seconds": 2331.0415
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 40,
+      "cost": 931.699291,
+      "active_seconds": 2331.2546
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 22,
+      "cost": 295121.40227,
+      "active_seconds": 2398.7588
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_5",
+      "owned_after": 2,
+      "cost": 345000.0,
+      "active_seconds": 2475.2152
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 32,
+      "cost": 74620.666995,
+      "active_seconds": 2491.1724
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 36,
+      "cost": 9322.28664,
+      "active_seconds": 2493.1511
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 41,
+      "cost": 1071.454185,
+      "active_seconds": 2493.3783
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 23,
+      "cost": 339389.61261,
+      "active_seconds": 2565.3411
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_5",
+      "owned_after": 3,
+      "cost": 396750.0,
+      "active_seconds": 2647.033
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 33,
+      "cost": 85813.767045,
+      "active_seconds": 2664.1254
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 37,
+      "cost": 10720.629636,
+      "active_seconds": 2666.2459
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 42,
+      "cost": 1232.172313,
+      "active_seconds": 2666.4894
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 24,
+      "cost": 390298.054502,
+      "active_seconds": 2743.6163
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 25,
+      "cost": 448842.762677,
+      "active_seconds": 2829.9165
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 26,
+      "cost": 516169.177078,
+      "active_seconds": 2888.2181
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 27,
+      "cost": 593594.55364,
+      "active_seconds": 2953.2028
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 28,
+      "cost": 682633.736686,
+      "active_seconds": 3025.705
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_5",
+      "owned_after": 4,
+      "cost": 456262.5,
+      "active_seconds": 3072.7603
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 29,
+      "cost": 785028.797189,
+      "active_seconds": 3152.376
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 34,
+      "cost": 98685.832101,
+      "active_seconds": 3162.1072
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 38,
+      "cost": 12328.724081,
+      "active_seconds": 3163.3187
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 43,
+      "cost": 1416.99816,
+      "active_seconds": 3163.4579
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_5",
+      "owned_after": 5,
+      "cost": 524701.875,
+      "active_seconds": 3214.9949
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 30,
+      "cost": 902783.116767,
+      "active_seconds": 3302.2626
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 35,
+      "cost": 113488.706916,
+      "active_seconds": 3312.9429
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 39,
+      "cost": 14178.032693,
+      "active_seconds": 3314.2728
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 44,
+      "cost": 1629.547884,
+      "active_seconds": 3314.4256
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_5",
+      "owned_after": 6,
+      "cost": 603407.15625,
+      "active_seconds": 3370.9994
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 31,
+      "cost": 1038200.584282,
+      "active_seconds": 3466.865
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 36,
+      "cost": 130512.012954,
+      "active_seconds": 3478.6115
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 40,
+      "cost": 16304.737597,
+      "active_seconds": 3480.0744
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 45,
+      "cost": 1873.980066,
+      "active_seconds": 3480.2424
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_5",
+      "owned_after": 7,
+      "cost": 693918.229687,
+      "active_seconds": 3542.4739
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 32,
+      "cost": 1193930.671925,
+      "active_seconds": 3647.9959
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 37,
+      "cost": 150088.814897,
+      "active_seconds": 3660.9397
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 41,
+      "cost": 18750.448236,
+      "active_seconds": 3662.5518
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 46,
+      "cost": 2155.077076,
+      "active_seconds": 3662.7371
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_5",
+      "owned_after": 8,
+      "cost": 798005.964141,
+      "active_seconds": 3731.3216
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 33,
+      "cost": 1373020.272713,
+      "active_seconds": 3847.6863
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 38,
+      "cost": 172602.137132,
+      "active_seconds": 3861.9743
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 42,
+      "cost": 21563.015472,
+      "active_seconds": 3863.7541
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 47,
+      "cost": 2478.338637,
+      "active_seconds": 3863.9586
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_5",
+      "owned_after": 9,
+      "cost": 917706.858762,
+      "active_seconds": 3939.6762
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_5",
+      "owned_after": 10,
+      "cost": 1055362.887576,
+      "active_seconds": 4025.5895
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_5",
+      "owned_after": 11,
+      "cost": 1213667.320712,
+      "active_seconds": 4111.7436
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_5",
+      "owned_after": 12,
+      "cost": 1395717.418819,
+      "active_seconds": 4208.5675
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_5",
+      "owned_after": 13,
+      "cost": 1605075.031642,
+      "active_seconds": 4317.439
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 34,
+      "cost": 1578973.31362,
+      "active_seconds": 4422.2102
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_5",
+      "owned_after": 14,
+      "cost": 1845836.286388,
+      "active_seconds": 4542.4472
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 39,
+      "cost": 198492.457701,
+      "active_seconds": 4555.1066
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 43,
+      "cost": 24797.467793,
+      "active_seconds": 4556.6846
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 48,
+      "cost": 2850.089433,
+      "active_seconds": 4556.8659
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 35,
+      "cost": 1815819.310664,
+      "active_seconds": 4672.3806
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_5",
+      "owned_after": 15,
+      "cost": 2122711.729347,
+      "active_seconds": 4805.0474
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 40,
+      "cost": 228266.326357,
+      "active_seconds": 4819.0273
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 44,
+      "cost": 28517.087962,
+      "active_seconds": 4820.7701
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 49,
+      "cost": 3277.602848,
+      "active_seconds": 4820.9703
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 50,
+      "cost": 3769.243275,
+      "active_seconds": 4821.2006
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 51,
+      "cost": 4334.629766,
+      "active_seconds": 4821.465
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 52,
+      "cost": 4984.824231,
+      "active_seconds": 4821.7691
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 53,
+      "cost": 5732.547866,
+      "active_seconds": 4822.1188
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 54,
+      "cost": 6592.430046,
+      "active_seconds": 4822.5209
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 36,
+      "cost": 2088192.207263,
+      "active_seconds": 4949.8833
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_5",
+      "owned_after": 16,
+      "cost": 2441118.488749,
+      "active_seconds": 5096.263
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 41,
+      "cost": 262506.27531,
+      "active_seconds": 5111.7005
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 45,
+      "cost": 32794.651156,
+      "active_seconds": 5113.6251
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 55,
+      "cost": 7581.294553,
+      "active_seconds": 5114.0699
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 37,
+      "cost": 2401421.038353,
+      "active_seconds": 5254.9585
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_5",
+      "owned_after": 17,
+      "cost": 2807286.262061,
+      "active_seconds": 5416.988
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 42,
+      "cost": 301882.216607,
+      "active_seconds": 5434.0883
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 46,
+      "cost": 37713.848829,
+      "active_seconds": 5436.2204
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 56,
+      "cost": 8718.488736,
+      "active_seconds": 5436.7131
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_4",
+      "owned_after": 38,
+      "cost": 2761634.194105,
+      "active_seconds": 5592.7908
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_5",
+      "owned_after": 18,
+      "cost": 3228379.20137,
+      "active_seconds": 5772.3954
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_3",
+      "owned_after": 43,
+      "cost": 347164.549097,
+      "active_seconds": 5791.3633
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_2",
+      "owned_after": 47,
+      "cost": 43370.926154,
+      "active_seconds": 5793.7284
+    },
+    {
+      "name": "upgrade_purchase",
+      "generator_id": "generator_1",
+      "owned_after": 57,
+      "cost": 10026.262046,
+      "active_seconds": 5794.275
+    },
+    {
+      "name": "prestige_trigger",
+      "prestige_count": 0,
+      "points_gained": 1,
+      "lifetime_currency": 46882845.351257,
+      "active_seconds": 5794.275
+    }
+  ],
+  "targets": {
+    "wall_minutes_min": 90.0,
+    "wall_minutes_max": 120.0,
+    "wall_minutes_target": 90.0,
+    "d1_min": 0.35,
+    "d7_min": 0.15,
+    "d30_min": 0.05,
+    "session_cadence_min": 5.0,
+    "session_cadence_max": 6.0
+  },
+  "projection_note": "D1/D7/D30 are a design-time projection from this run, not measured cohort retention."
+}

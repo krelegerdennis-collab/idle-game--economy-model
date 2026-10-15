@@ -1,0 +1,18 @@
+{
+  "max_active_seconds": 28800,
+  "max_purchases": 8000,
+  "sample_every_seconds": 300,
+  "primary_policy": "roi",
+  "noisy_second_best_probability": 0.15,
+  "noisy_runs": 20,
+  "noisy_seed": 7,
+  "ten_x_production_multiplier": 10,
+  "max_prestige_resets": 12,
+  "population_weights": {
+    "roi": 30,
+    "roi_noisy": 20,
+    "patient": 10,
+    "cheapest": 5,
+    "peak": 35
+  }
+}
