@@ -62,7 +62,7 @@ def test_streaming_config_matches_the_export():
 
 
 def test_client_has_no_hardcoded_balance_literals():
-    sources = list(CS_ROOT.glob("*.cs"))
+    sources = list(CS_ROOT.rglob("*.cs"))
     assert sources
     blob = "\n".join(path.read_text(encoding="utf-8") for path in sources)
     for literal in FORBIDDEN_LITERALS:
@@ -74,6 +74,10 @@ def test_client_has_no_hardcoded_balance_literals():
     assert "/sdcard/Android/data/" in export
     assert "Application.persistentDataPath" in export
     assert "Application.identifier" in export
+    assert "WebGLPlayer" in export
+    download = (CS_ROOT / "WebGLDownload.cs").read_text(encoding="utf-8")
+    assert "PlaytestDownload" in download
+    assert "ExternalEval" not in (CS_ROOT / "ExportLogs.cs").read_text(encoding="utf-8")
 
 
 def test_simulation_reference_reads_the_frozen_baseline():
@@ -170,7 +174,9 @@ def test_playtest_cohort_answers_the_six_questions(tmp_path: Path):
     assert len(loaded) == 13
     report = analyze_path(path)
     assert report["session_players"] == 2
+    assert report["medium"] == "device"
     assert report["take_rate"] == pytest.approx(0.5)
+    assert report["contract_declined_ratio"] == pytest.approx(0.5)
     assert report["contract_purchased"]["players"] == 1
     assert report["contract_purchased"]["moments"][0]["active_minutes"] == pytest.approx(20)
     assert report["contract_seen_not_purchased"]["players"] == 1
@@ -212,6 +218,38 @@ def test_empty_cohort_does_not_invent_rates():
     text = format_comparison(compared)
     assert "playtest —" in text
     assert "D30:" in text
+
+
+def test_webgl_logs_skip_retention(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    path = tmp_path / "web.jsonl"
+    lines = [
+        _event(
+            "session_begin",
+            timestamp="2026-01-01T00:00:00+00:00",
+            player_id="w",
+            medium="webgl",
+            cumulative_playtime=0,
+        ),
+        _event(
+            "contract_offer_shown",
+            timestamp="2026-01-01T00:00:01+00:00",
+            player_id="w",
+            owned_at_offer=0,
+        ),
+        _event(
+            "contract_declined",
+            timestamp="2026-01-01T00:10:00+00:00",
+            player_id="w",
+            reason_if_known="session_end",
+        ),
+    ]
+    path.write_text("\n".join(json.dumps(line) for line in lines) + "\n", encoding="utf-8")
+    assert compare_main(["--logs", str(path)]) == 0
+    text = capsys.readouterr().out
+    assert "niet valide voor WebGL" in text
+    assert "contract_declined-ratio: 1" in text
+    assert "D1: simulatie" not in text
+    assert "D30: simulatie" not in text
 
 
 def test_compare_cli_with_no_logs_exits_clean(capsys: pytest.CaptureFixture[str]):

@@ -20,3 +20,4 @@ alwaysApply: true
   `exports/runs/baseline.json` is frozen; do not regenerate it.
   The playtest in `unity/Playtest` reads `exports/unity/economy_config.json`.
   Do not retune `data/` to make that client or a later cohort match the sim.
+  A WebGL build is a smoke test. Do not compare its D1/D7/D30 to baseline.json.

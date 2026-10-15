@@ -13,6 +13,7 @@ namespace Playtest
     public sealed class PlaytestController : MonoBehaviour
     {
         const string SaveFileName = "playtest_save.json";
+        const string SavePrefsKey = "playtest_save";
         const double ForegroundGapSeconds = 1.0;
 
         sealed class LabeledButton
@@ -51,8 +52,10 @@ namespace Playtest
         void Awake()
         {
             analytics = ScriptableObject.CreateInstance<AnalyticsBridge>();
-            string logPath = Path.Combine(Application.persistentDataPath, AnalyticsBridge.LogFileName);
-            analytics.Open(logPath);
+            if (Browser())
+                analytics.Open(AnalyticsBridge.LogFileName);
+            else
+                analytics.Open(Path.Combine(Application.persistentDataPath, AnalyticsBridge.LogFileName));
             exportLogs = gameObject.AddComponent<ExportLogs>();
             exportLogs.Bind(analytics);
             savePath = Path.Combine(Application.persistentDataPath, SaveFileName);
@@ -99,8 +102,9 @@ namespace Playtest
         void Boot(string json)
         {
             config = EconomyConfig.Parse(json);
-            if (File.Exists(savePath))
-                state = PlaytestState.FromJson(config, File.ReadAllText(savePath));
+            string saved = ReadSave();
+            if (saved != null)
+                state = PlaytestState.FromJson(config, saved);
             else
                 state = PlaytestState.NewGame(config);
             state.BeginSession();
@@ -274,7 +278,33 @@ namespace Playtest
 
         void Save()
         {
-            File.WriteAllText(savePath, state.ToJson());
+            string json = state.ToJson();
+            if (Browser())
+            {
+                PlayerPrefs.SetString(SavePrefsKey, json);
+                PlayerPrefs.Save();
+                return;
+            }
+            File.WriteAllText(savePath, json);
+        }
+
+        string ReadSave()
+        {
+            if (Browser())
+            {
+                if (!PlayerPrefs.HasKey(SavePrefsKey))
+                    return null;
+                string saved = PlayerPrefs.GetString(SavePrefsKey);
+                return string.IsNullOrEmpty(saved) ? null : saved;
+            }
+            if (!File.Exists(savePath))
+                return null;
+            return File.ReadAllText(savePath);
+        }
+
+        static bool Browser()
+        {
+            return Application.platform == RuntimePlatform.WebGLPlayer;
         }
 
         void Refresh()
@@ -360,6 +390,11 @@ namespace Playtest
             currencyText = MakeText(content, 56, 88);
             timeText = MakeText(content, 28, 40);
             insightText = MakeText(content, 32, 48);
+            if (Browser())
+            {
+                LabeledButton download = MakeButton(content, 72, () => exportLogs.ExportNow());
+                download.Label.text = "Log downloaden";
+            }
             foreach (GeneratorConfig generator in config.Generators)
             {
                 GeneratorConfig captured = generator;
