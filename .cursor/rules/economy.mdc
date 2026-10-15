@@ -14,4 +14,7 @@ alwaysApply: true
   play, or until the next prestige, whichever comes first. The horizon
   lives in `data/simulation.json`. A branch that dips and then peaks is
   ranked by that same ratio. There is no second purchase objective.
-  Cost stays `cost_base × growth^owned`.
+  Cost stays `cost_base × growth^owned`. Insight relics in `data/relics.json`
+  are a second reward axis. They do not add prestige points. The exchange
+  into prestige points applies on the next reset only.
+  `exports/runs/baseline.json` is frozen; do not regenerate it.

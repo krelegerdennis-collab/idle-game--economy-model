@@ -86,6 +86,45 @@ def build_unity_payload(economy: Economy) -> dict[str, object]:
             "optionalBoostSeconds": economy.monetization.optional_boost_seconds,
             "defaultAction": economy.monetization.default_action,
         },
+        "relics": {
+            "currencyId": economy.relics.currency_id,
+            "sources": [
+                {
+                    "id": source.id,
+                    "kind": source.kind,
+                    "threshold": source.threshold,
+                    "insight": source.insight,
+                }
+                for source in economy.relics.sources
+            ],
+            "prestigeExchange": None
+            if economy.relics.prestige_exchange is None
+            else {
+                "id": economy.relics.prestige_exchange.id,
+                "insightCost": economy.relics.prestige_exchange.insight_cost,
+                "bonusPoints": economy.relics.prestige_exchange.bonus_points,
+                "applies": economy.relics.prestige_exchange.applies,
+            },
+            "items": [
+                {
+                    "id": relic.id,
+                    "insightCost": relic.insight_cost,
+                    "maxLevel": relic.max_level,
+                    "offlineRateAdd": relic.offline_rate_add,
+                    "sessionStartFreeGeneratorChance": relic.session_start_free_generator_chance,
+                    "freeGeneratorId": relic.free_generator_id,
+                    "extraMilestone": None
+                    if relic.extra_milestone is None
+                    else {
+                        "ownedAtLeast": relic.extra_milestone.owned_at_least,
+                        "productionMultiplier": relic.extra_milestone.production_multiplier,
+                    },
+                    "sessionOpenBoostMultiplier": relic.session_open_boost_multiplier,
+                    "sessionOpenBoostSeconds": relic.session_open_boost_seconds,
+                }
+                for relic in economy.relics.relics
+            ],
+        },
         "analyticsEvents": [
             {"name": event["name"], "properties": list(event["properties"])}
             for event in economy.analytics_events
