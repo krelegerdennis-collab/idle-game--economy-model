@@ -15,7 +15,7 @@ Banked points, and therefore the multiplier, stay.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -28,6 +28,7 @@ class RunState:
     owned: dict[str, int]
     prestige_points: int = 0
     prestige_count: int = 0
+    branch_levels: dict[str, int] = field(default_factory=dict)
 
     def copy(self) -> RunState:
         return RunState(
@@ -37,6 +38,7 @@ class RunState:
             owned=dict(self.owned),
             prestige_points=self.prestige_points,
             prestige_count=self.prestige_count,
+            branch_levels=dict(self.branch_levels),
         )
 
 
@@ -141,5 +143,6 @@ def apply_prestige(
         owned={generator_id: 0 for generator_id in generator_ids},
         prestige_points=int(result["points_total"]),
         prestige_count=state.prestige_count + 1,
+        branch_levels={},
     )
     return reset, result

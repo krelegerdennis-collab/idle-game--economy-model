@@ -1,5 +1,17 @@
 {
-  "notes": "Each milestone multiplies that generator's whole stack once owned reaches the threshold. Steps are finite, so they do not turn production into an exponential curve.",
+  "notes": "Milestones multiply a generator's whole stack at owned thresholds. The peak_contract branch is a separate purchase: active production falls immediately, and a higher peak applies only after total owned copies cross peak_total_owned_at_least. The offer closes at commit_before_total_owned, which is before that peak, so buying it is never an immediate production gain.",
+  "branches": [
+    {
+      "id": "peak_contract",
+      "cost_base": 25000,
+      "growth_rate": 1.15,
+      "max_level": 1,
+      "active_production_multiplier": 0.7,
+      "peak_production_multiplier": 1.8,
+      "peak_total_owned_at_least": 70,
+      "commit_before_total_owned": 55
+    }
+  ],
   "milestones": [
     {"owned_at_least": 10, "production_multiplier": 2},
     {"owned_at_least": 25, "production_multiplier": 2},

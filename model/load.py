@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from model.generators import Generator, Milestone
+from model.generators import Branch, Generator, Milestone
 from model.monetization import MonetizationConfig
 from model.offline import OfflineConfig
 from model.prestige import PrestigeConfig
@@ -35,6 +35,8 @@ class SimulationConfig:
     noisy_runs: int
     noisy_seed: int
     population_weights: dict[str, float]
+    ten_x_production_multiplier: float
+    max_prestige_resets: int
 
 
 @dataclass(frozen=True)
@@ -44,6 +46,7 @@ class Economy:
     active_click_per_second: float
     generators: tuple[Generator, ...]
     milestones: tuple[Milestone, ...]
+    branches: tuple[Branch, ...]
     prestige: PrestigeConfig
     offline: OfflineConfig
     monetization: MonetizationConfig
@@ -111,6 +114,39 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
         if milestone.production_multiplier <= 0:
             raise ValueError("upgrade production_multiplier must be > 0")
 
+    branches: list[Branch] = []
+    for raw in upgrades_file.get("branches", []):
+        branch = Branch(
+            id=str(raw["id"]),
+            cost_base=float(raw["cost_base"]),
+            growth_rate=float(raw["growth_rate"]),
+            max_level=int(raw["max_level"]),
+            active_production_multiplier=float(raw["active_production_multiplier"]),
+            peak_production_multiplier=float(raw["peak_production_multiplier"]),
+            peak_total_owned_at_least=int(raw["peak_total_owned_at_least"]),
+            commit_before_total_owned=int(raw["commit_before_total_owned"]),
+        )
+        if branch.growth_rate <= 1 or branch.cost_base <= 0:
+            raise ValueError(f"{branch.id} cost must grow exponentially from a positive base")
+        if branch.max_level < 1:
+            raise ValueError(f"{branch.id} max_level must be >= 1")
+        if not 0 < branch.active_production_multiplier < 1:
+            raise ValueError(f"{branch.id} active_production_multiplier must be between 0 and 1")
+        if branch.peak_net_multiplier <= 1:
+            raise ValueError(f"{branch.id} peak net multiplier must exceed 1, otherwise it is not a peak")
+        if branch.peak_total_owned_at_least < 1 or branch.commit_before_total_owned < 1:
+            raise ValueError(f"{branch.id} owned thresholds must be >= 1")
+        if branch.commit_before_total_owned > branch.peak_total_owned_at_least:
+            raise ValueError(
+                f"{branch.id} commit window must close at or before the peak, "
+                "so the purchase is only offered while it still slows active production"
+            )
+        branches.append(branch)
+    generator_ids = {item.id for item in generators}
+    branch_ids = {item.id for item in branches}
+    if len(branch_ids) != len(branches) or branch_ids.intersection(generator_ids):
+        raise ValueError("branch ids must be unique and must not reuse a generator id")
+
     exponent = float(prestige_file["exponent"])
     if not 0 < exponent < 1:
         raise ValueError("prestige exponent must satisfy 0 < exponent < 1")
@@ -167,7 +203,13 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
         noisy_runs=int(simulation_file["noisy_runs"]),
         noisy_seed=int(simulation_file["noisy_seed"]),
         population_weights=weights,
+        ten_x_production_multiplier=float(simulation_file["ten_x_production_multiplier"]),
+        max_prestige_resets=int(simulation_file["max_prestige_resets"]),
     )
+    if simulation.ten_x_production_multiplier <= 1:
+        raise ValueError("ten_x_production_multiplier must be > 1")
+    if simulation.max_prestige_resets < 1:
+        raise ValueError("max_prestige_resets must be >= 1")
 
     projection = {str(key): float(value) for key, value in retention_file["projection"].items()}
     retention = RetentionTargets(
@@ -180,6 +222,7 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
         first_prestige_wall_minutes_target=float(retention_file["first_prestige_wall_minutes_target"]),
         first_prestige_wall_minutes_max=float(retention_file["first_prestige_wall_minutes_max"]),
         purchase_order_agreement_min=float(retention_file["purchase_order_agreement_min"]),
+        dominant_route_max=float(retention_file["dominant_route_max"]),
         min_tiers_unlocked=int(retention_file["min_tiers_unlocked"]),
         projection=projection,
     )
@@ -197,6 +240,7 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
         active_click_per_second=float(generators_file["active_click_per_second"]),
         generators=tuple(generators),
         milestones=milestones,
+        branches=tuple(branches),
         prestige=prestige,
         offline=offline,
         monetization=monetization,

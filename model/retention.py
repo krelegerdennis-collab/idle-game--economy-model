@@ -27,6 +27,7 @@ class RetentionTargets:
     first_prestige_wall_minutes_target: float
     first_prestige_wall_minutes_max: float
     purchase_order_agreement_min: float
+    dominant_route_max: float
     min_tiers_unlocked: int
     projection: dict[str, float]
 
@@ -128,6 +129,8 @@ def evaluate_constraints(
     subexponential: bool,
     free_path_reached_wall: bool,
     targets: RetentionTargets,
+    dominant_route_share: float | None = None,
+    route_walls: dict[str, float] | None = None,
 ) -> dict[str, object]:
     """Fail closed. Each failure is a sentence the agent can stop on."""
     failures: list[str] = []
@@ -182,4 +185,14 @@ def evaluate_constraints(
         )
     if not free_path_reached_wall:
         failures.append("the free path does not reach the first prestige wall; a monetization gate would be required")
+    if dominant_route_share is not None and dominant_route_share >= targets.dominant_route_max:
+        failures.append(
+            f"dominant route share is {dominant_route_share:.0%}, at or above "
+            f"{targets.dominant_route_max:.0%}; players have no real alternative"
+        )
+    for route_name, minutes in (route_walls or {}).items():
+        if minutes < lo or minutes > hi:
+            failures.append(
+                f"{route_name} first prestige wall is {minutes:.2f} min, outside {lo:.0f}–{hi:.0f}"
+            )
     return {"ok": not failures, "failures": failures}

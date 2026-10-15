@@ -19,10 +19,16 @@ import random
 import sys
 from pathlib import Path
 
-from model.generators import production_is_subexponential, production_total, tiers_are_subexponential, upgrade_multiplier
+from model.generators import (
+    generator_branch_multiplier,
+    production_is_subexponential,
+    production_total,
+    tiers_are_subexponential,
+    upgrade_multiplier,
+)
 from model.load import ROOT, Economy, load_economy
 from model.monetization import monetization_gate
-from model.prestige import RunState, prestige_multiplier, prestige_points
+from model.prestige import RunState, apply_prestige, prestige_multiplier, prestige_points
 from model.retention import evaluate_constraints, project_retention
 from sim.policies import Choice, choose
 
@@ -30,14 +36,24 @@ _PURCHASE_TOLERANCE = 1e-8
 
 
 def production_rate(economy: Economy, state: RunState) -> float:
-    """Clicks plus every generator. Prestige multiplies the whole rate."""
+    """Clicks plus every generator. Prestige multiplies the whole rate.
+
+    Branch modifiers apply to generator output only. Clicks stay available,
+    so a slower-start contract cannot freeze the run at zero production.
+    """
     prestige = prestige_multiplier(state.prestige_points, economy.prestige.point_value)
-    total = economy.active_click_per_second * prestige
+    clicks = economy.active_click_per_second * prestige
+    generators = 0.0
     for generator in economy.generators:
         owned = state.owned[generator.id]
         multipliers = upgrade_multiplier(owned, economy.milestones) * prestige
-        total += production_total(generator.production_base, owned, multipliers)
-    return total
+        generators += production_total(generator.production_base, owned, multipliers)
+    branch = generator_branch_multiplier(
+        economy.branches,
+        state.branch_levels,
+        sum(state.owned.values()),
+    )
+    return clicks + generators * branch
 
 
 def initial_state(economy: Economy) -> RunState:
@@ -48,6 +64,7 @@ def initial_state(economy: Economy) -> RunState:
         owned={generator.id: 0 for generator in economy.generators},
         prestige_points=0,
         prestige_count=0,
+        branch_levels={branch.id: 0 for branch in economy.branches},
     )
 
 
@@ -100,6 +117,9 @@ def _buy(state: RunState, choice: Choice) -> None:
     state.currency -= choice.cost
     if state.currency < 0 and abs(state.currency) < _PURCHASE_TOLERANCE * max(1.0, choice.cost):
         state.currency = 0.0
+    if choice.kind == "branch":
+        state.branch_levels[choice.generator_id] = state.branch_levels.get(choice.generator_id, 0) + 1
+        return
     state.owned[choice.generator_id] += 1
 
 
@@ -202,9 +222,14 @@ def simulate_run(
 
 
 def _purchase_record(state: RunState, choice: Choice) -> dict[str, object]:
+    if choice.kind == "branch":
+        owned_after = state.branch_levels.get(choice.generator_id, 0)
+    else:
+        owned_after = state.owned[choice.generator_id]
     return {
         "generator_id": choice.generator_id,
-        "owned_after": state.owned[choice.generator_id],
+        "kind": choice.kind,
+        "owned_after": owned_after,
         "cost": round(choice.cost, 6),
         "active_seconds": round(state.t, 4),
     }
@@ -237,14 +262,37 @@ def _is_legible(order: list[str], authored: list[str]) -> bool:
     return len(order) > 0 and order == authored[: len(order)]
 
 
-def purchase_agreement(economy: Economy, primary: dict[str, object]) -> dict[str, object]:
-    """Weighted share of policies whose unlock order follows the authored tiers."""
-    authored = [generator.id for generator in economy.generators]
-    weights = economy.simulation.population_weights
-    orders: list[tuple[list[str], float]] = []
+def _branch_ids(economy: Economy) -> set[str]:
+    return {branch.id for branch in economy.branches}
 
-    primary_order = list(primary["unlock_order"])
-    orders.append((primary_order, weights.get("roi", 0.0)))
+
+def generator_unlock_order(purchases: list[dict[str, object]], branch_ids: set[str]) -> list[str]:
+    order: list[str] = []
+    for purchase in purchases:
+        generator_id = str(purchase["generator_id"])
+        if generator_id in branch_ids or generator_id in order:
+            continue
+        order.append(generator_id)
+    return order
+
+
+def route_name(purchases: list[dict[str, object]], branch_ids: set[str]) -> str:
+    for purchase in purchases:
+        generator_id = str(purchase["generator_id"])
+        if generator_id in branch_ids:
+            return generator_id
+    return "linear"
+
+
+def purchase_agreement(economy: Economy, primary: dict[str, object]) -> dict[str, object]:
+    """Weighted generator-order agreement, plus the share of each authored route."""
+    authored = [generator.id for generator in economy.generators]
+    branch_ids = _branch_ids(economy)
+    weights = economy.simulation.population_weights
+    samples: list[tuple[dict[str, object], float]] = []
+
+    primary_order = generator_unlock_order(primary["purchases"], branch_ids)  # type: ignore[arg-type]
+    samples.append((primary, weights.get("roi", 0.0)))
 
     noisy_weight = weights.get("roi_noisy", 0.0)
     runs = max(1, economy.simulation.noisy_runs)
@@ -254,23 +302,40 @@ def purchase_agreement(economy: Economy, primary: dict[str, object]) -> dict[str
             policy="roi_noisy",
             seed=economy.simulation.noisy_seed + index,
         )
-        orders.append((list(noisy["unlock_order"]), noisy_weight / runs))
+        samples.append((noisy, noisy_weight / runs))
 
-    if weights.get("patient", 0) > 0:
-        patient = simulate_run(economy, policy="patient")
-        orders.append((list(patient["unlock_order"]), weights["patient"]))
-    if weights.get("cheapest", 0) > 0:
-        cheapest = simulate_run(economy, policy="cheapest")
-        orders.append((list(cheapest["unlock_order"]), weights["cheapest"]))
+    for policy in ("patient", "cheapest", "peak"):
+        weight = weights.get(policy, 0)
+        if weight > 0:
+            samples.append((simulate_run(economy, policy=policy), weight))
 
-    total = sum(weight for _, weight in orders)
-    legible = sum(weight for order, weight in orders if _is_legible(order, authored))
-    agreement = legible / total if total else 0.0
+    total = sum(weight for _, weight in samples)
+    legible_weight = 0.0
+    route_weights: dict[str, float] = {}
+    route_walls: dict[str, float] = {}
+    for result, weight in samples:
+        purchases = result["purchases"]
+        assert isinstance(purchases, list)
+        order = generator_unlock_order(purchases, branch_ids)
+        if _is_legible(order, authored):
+            legible_weight += weight
+        route = route_name(purchases, branch_ids)
+        route_weights[route] = route_weights.get(route, 0.0) + weight
+        wall = result["wall"]
+        if route not in route_walls and isinstance(wall, dict):
+            route_walls[route] = float(wall["t_minutes"])
+    agreement = legible_weight / total if total else 0.0
+    shares = {route: weight / total for route, weight in route_weights.items()} if total else {}
+    dominant_route = max(shares, key=shares.get) if shares else "linear"
     return {
         "agreement": agreement,
         "authored_order": authored,
         "primary_order": primary_order,
         "primary_is_prefix": _is_legible(primary_order, authored),
+        "route_shares": shares,
+        "dominant_route": dominant_route,
+        "dominant_route_share": shares.get(dominant_route, 0.0),
+        "route_walls": route_walls,
     }
 
 
@@ -308,6 +373,10 @@ def build_report(economy: Economy, *, include_population: bool = True) -> dict[s
             "authored_order": authored,
             "primary_order": order,
             "primary_is_prefix": _is_legible(order, authored),
+            "route_shares": {},
+            "dominant_route": "linear",
+            "dominant_route_share": None,
+            "route_walls": {},
         }
     cadence = economy.offline.session_cadence
     retention = project_retention(
@@ -337,7 +406,18 @@ def build_report(economy: Economy, *, include_population: bool = True) -> dict[s
         subexponential=subexponential,
         free_path_reached_wall=wall is not None,
         targets=economy.retention,
+        dominant_route_share=(
+            None
+            if agreement_report.get("dominant_route_share") is None
+            else float(agreement_report["dominant_route_share"])
+        ),
+        route_walls=agreement_report.get("route_walls") if include_population else None,
     )
+    route_progress = {}
+    if include_population and wall is not None:
+        route_progress["linear"] = climb_to_multiplier(economy, economy.simulation.primary_policy)
+        if economy.simulation.population_weights.get("peak", 0) > 0:
+            route_progress["peak"] = climb_to_multiplier(economy, "peak")
     owned = primary["owned"]
     report: dict[str, object] = {
         "data_fingerprint": data_fingerprint(economy.data_dir) if economy.data_dir.is_dir() else None,
@@ -355,6 +435,11 @@ def build_report(economy: Economy, *, include_population: bool = True) -> dict[s
         "owned_final": owned,
         "unlock_order": agreement_report["primary_order"],
         "purchase_agreement": agreement_report["agreement"],
+        "route_shares": agreement_report.get("route_shares", {}),
+        "dominant_route": agreement_report.get("dominant_route"),
+        "dominant_route_share": agreement_report.get("dominant_route_share"),
+        "route_walls": agreement_report.get("route_walls", {}),
+        "route_progress": route_progress,
         "purchase_count": len(primary["purchases"]),
         "session_cadence": cadence,
         "retention": {
@@ -391,6 +476,51 @@ def build_report(economy: Economy, *, include_population: bool = True) -> dict[s
     return _round_number(report)  # type: ignore[return-value]
 
 
+def climb_to_multiplier(economy: Economy, policy: str) -> dict[str, object]:
+    """Active-play resets until the prestige multiplier reaches the data target."""
+    target = economy.simulation.ten_x_production_multiplier
+    max_resets = economy.simulation.max_prestige_resets
+    generator_ids = [generator.id for generator in economy.generators]
+    state = None
+    run_minutes: list[float] = []
+    final_multiplier = 1.0
+    for _ in range(max_resets):
+        result = simulate_run(economy, policy=policy, state=state, stop_at_wall=True)
+        wall = result["wall"]
+        if not isinstance(wall, dict):
+            second = run_minutes[1] if len(run_minutes) > 1 else None
+            return {
+                "resets_to_10x": None,
+                "first_wall_minutes": run_minutes[0] if run_minutes else None,
+                "second_run_minutes": second,
+                "time_to_second_prestige_minutes": None if second is None else run_minutes[0] + second,
+                "multiplier": final_multiplier,
+                "stopped_on": result["stopped_on"],
+            }
+        run_minutes.append(float(wall["t_minutes"]))
+        state, reset = apply_prestige(result["state"], generator_ids, economy.prestige)
+        final_multiplier = float(reset["multiplier"])
+        if final_multiplier >= target:
+            second = run_minutes[1] if len(run_minutes) > 1 else None
+            return {
+                "resets_to_10x": len(run_minutes),
+                "first_wall_minutes": run_minutes[0],
+                "second_run_minutes": second,
+                "time_to_second_prestige_minutes": None if second is None else run_minutes[0] + second,
+                "multiplier": final_multiplier,
+                "stopped_on": "multiplier",
+            }
+    second = run_minutes[1] if len(run_minutes) > 1 else None
+    return {
+        "resets_to_10x": None,
+        "first_wall_minutes": run_minutes[0] if run_minutes else None,
+        "second_run_minutes": second,
+        "time_to_second_prestige_minutes": None if second is None else run_minutes[0] + second,
+        "multiplier": final_multiplier,
+        "stopped_on": "reset_cap",
+    }
+
+
 def _events(primary: dict[str, object], wall: dict[str, object] | None, points: int) -> list[dict[str, object]]:
     events: list[dict[str, object]] = [
         {"name": "session_begin", "session_index": 0, "seconds_since_last": 0, "prestige_count": 0}
@@ -416,6 +546,33 @@ def _events(primary: dict[str, object], wall: dict[str, object] | None, points: 
             }
         )
     return events
+
+
+def _format_routes(report: dict[str, object]) -> str:
+    shares = report.get("route_shares") or {}
+    if not isinstance(shares, dict) or not shares:
+        return "not measured"
+    parts = [f"{name} {float(share):.0%}" for name, share in shares.items()]
+    return (
+        ", ".join(parts)
+        + f" (dominant {report.get('dominant_route')} {float(report.get('dominant_route_share') or 0):.0%})"
+    )
+
+
+def _format_second_prestige(report: dict[str, object]) -> str:
+    progress = report.get("route_progress") or {}
+    if not isinstance(progress, dict) or not progress:
+        return "not measured"
+    parts = []
+    for name, row in progress.items():
+        if not isinstance(row, dict):
+            continue
+        parts.append(
+            f"{name} {row.get('time_to_second_prestige_minutes')} min cumulative, "
+            f"2nd run {row.get('second_run_minutes')} min, "
+            f"{row.get('resets_to_10x')} resets to 10x"
+        )
+    return "; ".join(parts)
 
 
 def format_report(report: dict[str, object]) -> str:
@@ -444,6 +601,8 @@ def format_report(report: dict[str, object]) -> str:
         f"  unlock order: {order}",
         f"  purchases: {report['purchase_count']}",
         f"  purchase-order agreement: {float(report['purchase_agreement']):.0%}",
+        f"  routes: {_format_routes(report)}",
+        f"  time to 2nd prestige: {_format_second_prestige(report)}",
         f"  session cadence: {float(report['session_cadence']):.2f} check-ins/day",
         "  retention projection (design-time, not measured): "
         f"D1 {float(retention['d1']):.1%}  D7 {float(retention['d7']):.1%}  "

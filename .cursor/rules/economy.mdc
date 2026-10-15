@@ -10,3 +10,7 @@ alwaysApply: true
 - Offline earning formula: production × time_away × offline_rate (≤ 0.5).
 - Monetization gates sit at the first prestige wall and every 3rd prestige.
 - Never optimize for player spending. Optimize for retention, then monetize.
+- Active ROI scores only the immediate production change per cost.
+  A branch that is slower now and stronger after an owned threshold is a
+  second route. Do not fold that delayed payoff into the cost formula.
+  Neither route may hold 80% or more of players.

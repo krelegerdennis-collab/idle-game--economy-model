@@ -41,10 +41,12 @@ Verify every economy change against the simulation, not against a hunch.
    Compare prestige-wall time, the D1/D7/D30 projection, and session cadence.
    `python -m sim.compare_runs` diffs the current model against
    `exports/runs/baseline.json` or against another data directory or git ref.
-2. Check the purchase-order distribution. The authored generator order is
-   the legible sequence. If weighted player policies skip or reorder tiers,
-   the design is illegible. The agreement target lives in
-   `data/retention_targets.json`.
+2. Check route shares, not a single generator line. Active ROI stays on
+   the generator order because it scores only the immediate production
+   change. The peak contract in `data/upgrades.json` is a second route:
+   slower until the owned threshold, then a higher peak. Neither route may
+   hold `dominant_route_max` or more of the weighted population. Generator
+   skips are still illegible. Both targets live in `data/retention_targets.json`.
 3. Regenerate `exports/unity/economy_config.json` and confirm it matches
    `/data/`. If the JSON disagrees with the model, the model is wrong.
 

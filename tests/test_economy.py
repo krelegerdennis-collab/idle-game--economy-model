@@ -217,6 +217,16 @@ def test_shipped_model_meets_retention_constraints():
     assert retention["d30"] >= 0.05
     assert 5 <= float(report["session_cadence"]) <= 6
     assert float(report["purchase_agreement"]) >= 0.8
+    assert float(report["dominant_route_share"]) < 0.8
+    assert report["dominant_route"] == "linear"
+    assert float(report["route_shares"]["linear"]) == pytest.approx(0.65)
+    assert float(report["route_shares"]["peak_contract"]) == pytest.approx(0.35)
+    for route_name, minutes in report["route_walls"].items():
+        assert 90 <= float(minutes) <= 120, route_name
+    progress = report["route_progress"]
+    assert progress["linear"]["resets_to_10x"] == 3
+    assert progress["linear"]["time_to_second_prestige_minutes"] == pytest.approx(221.490603, abs=1e-4)
+    assert progress["peak"]["time_to_second_prestige_minutes"] > progress["linear"]["time_to_second_prestige_minutes"]
     assert report["unlock_order"] == [
         "generator_1",
         "generator_2",
@@ -225,7 +235,10 @@ def test_shipped_model_meets_retention_constraints():
         "generator_5",
     ]
     assert report["points_gained"] == 1
-    assert report["multiplier_after_prestige"] == pytest.approx(1.2)
+    assert report["multiplier_after_prestige"] == pytest.approx(1.6)
+    assert float(report["retention"]["d1"]) == pytest.approx(0.4062, abs=1e-4)
+    assert float(report["retention"]["d7"]) == pytest.approx(0.193429, abs=1e-4)
+    assert float(report["retention"]["d30"]) == pytest.approx(0.08)
     assert report["monetization_gate"]["active"] is True
     assert report["free_path"] == "decline_offer"
     assert report["constraints"]["ok"] is True
@@ -233,6 +246,20 @@ def test_shipped_model_meets_retention_constraints():
     assert "session_begin" in names
     assert "upgrade_purchase" in names
     assert "prestige_trigger" in names
+
+
+def test_peak_contract_is_not_an_active_roi_purchase():
+    """Immediate production falls, so ROI refuses the branch. Peak players buy it."""
+    economy = load_economy()
+    branch = economy.branches[0]
+    assert branch.active_production_multiplier < 1
+    assert branch.peak_net_multiplier > 1
+    assert branch.commit_before_total_owned <= branch.peak_total_owned_at_least
+    roi = simulate_run(economy, policy="roi")
+    peak = simulate_run(economy, policy="peak")
+    assert roi["state"].branch_levels["peak_contract"] == 0
+    assert peak["state"].branch_levels["peak_contract"] == 1
+    assert 90 <= float(peak["wall"]["t_minutes"]) <= 120
 
 
 def test_second_run_reaches_the_same_lifetime_faster():

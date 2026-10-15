@@ -9,6 +9,7 @@
   "first_prestige_wall_minutes_target": 90,
   "first_prestige_wall_minutes_max": 120,
   "purchase_order_agreement_min": 0.8,
+  "dominant_route_max": 0.8,
   "min_tiers_unlocked": 3,
   "projection": {
     "base_d1": 0.42,

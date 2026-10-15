@@ -51,6 +51,19 @@ def build_unity_payload(economy: Economy) -> dict[str, object]:
             }
             for milestone in economy.milestones
         ],
+        "branches": [
+            {
+                "id": branch.id,
+                "costBase": branch.cost_base,
+                "growthRate": branch.growth_rate,
+                "maxLevel": branch.max_level,
+                "activeProductionMultiplier": branch.active_production_multiplier,
+                "peakProductionMultiplier": branch.peak_production_multiplier,
+                "peakTotalOwnedAtLeast": branch.peak_total_owned_at_least,
+                "commitBeforeTotalOwned": branch.commit_before_total_owned,
+            }
+            for branch in economy.branches
+        ],
         "prestige": {
             "coeff": economy.prestige.coeff,
             "divisor": economy.prestige.divisor,

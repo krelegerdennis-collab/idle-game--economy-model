@@ -26,6 +26,31 @@ class Milestone:
 
 
 @dataclass(frozen=True)
+class Branch:
+    """A purchased modifier that competes with buying the next generator.
+
+    `active_production_multiplier` applies as soon as the branch is owned and
+    must be below 1. `peak_production_multiplier` applies only once total
+    generator copies reach `peak_total_owned_at_least`. The offer closes at
+    `commit_before_total_owned`, which is at or before that peak, so the
+    purchase is only available while its immediate effect is still a penalty.
+    """
+
+    id: str
+    cost_base: float
+    growth_rate: float
+    max_level: int
+    active_production_multiplier: float
+    peak_production_multiplier: float
+    peak_total_owned_at_least: int
+    commit_before_total_owned: int
+
+    @property
+    def peak_net_multiplier(self) -> float:
+        return self.active_production_multiplier * self.peak_production_multiplier
+
+
+@dataclass(frozen=True)
 class Generator:
     id: str
     tier: int
@@ -66,6 +91,23 @@ def upgrade_multiplier(owned: int, milestones: tuple[Milestone, ...]) -> float:
     return multiplier
 
 
+def generator_branch_multiplier(
+    branches: tuple[Branch, ...],
+    levels: dict[str, int],
+    total_owned: int,
+) -> float:
+    """Product of owned branch modifiers. 1 when the player has bought none."""
+    multiplier = 1.0
+    for branch in branches:
+        level = levels.get(branch.id, 0)
+        if level <= 0:
+            continue
+        multiplier *= branch.active_production_multiplier ** level
+        if total_owned >= branch.peak_total_owned_at_least:
+            multiplier *= branch.peak_production_multiplier ** level
+    return multiplier
+
+
 def production_total(production_base: float, owned: int, multipliers: float) -> float:
     """production_total = production_base × owned × multipliers."""
     if owned < 0:
@@ -97,7 +139,15 @@ def return_on_cost(
     milestones: tuple[Milestone, ...],
     prestige_multiplier: float,
 ) -> float:
-    """Marginal production per currency spent on the next copy."""
+    """Immediate marginal production per currency spent on the next copy.
+
+    This ratio uses only the production change at the moment of purchase.
+    A branch that lowers production now and raises it after an owned-count
+    threshold has a negative immediate marginal, so it cannot win this
+    comparison. That is why active-ROI policies stay on the generator line.
+    The delayed branch is scored by its own objective, not by changing this
+    formula.
+    """
     cost = cost_next(generator.cost_base, generator.growth_rate, owned)
     if not math.isfinite(cost) or cost <= 0:
         return 0.0

@@ -1,9 +1,9 @@
 {
-  "notes": "points = floor(coeff * (lifetime_currency / divisor) ^ exponent). multiplier = (1 + point_value) ^ total_points. divisor is set so the first 10 minute stall is worth exactly one point.",
+  "notes": "points = floor(coeff * (lifetime_currency / divisor) ^ exponent). multiplier = (1 + point_value) ^ total_points. point_value 0.6 makes the first point a 1.6x multiplier. divisor is set so the first 10 minute stall is worth exactly one point.",
   "coeff": 1,
   "divisor": 24000000,
   "exponent": 0.5,
-  "point_value": 0.2,
+  "point_value": 0.6,
   "min_points_to_prestige": 1,
   "stall_seconds": 600
 }

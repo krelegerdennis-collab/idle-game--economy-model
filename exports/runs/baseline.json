@@ -1,12 +1,12 @@
 {
-  "data_fingerprint": "dec733d7deac",
+  "data_fingerprint": "ee9733b90aef",
   "policy": "roi",
   "stopped_on": "prestige_wall",
   "prestige_wall_seconds": 5794.274988,
   "prestige_wall_minutes": 96.57125,
   "lifetime_currency_at_wall": 46882845.351257,
   "points_gained": 1,
-  "multiplier_after_prestige": 1.2,
+  "multiplier_after_prestige": 1.6,
   "waiting_on": "generator_6",
   "wait_seconds": 735.970698,
   "production_per_second_at_wall": 18343.1216,
@@ -33,7 +33,35 @@
     "generator_4",
     "generator_5"
   ],
-  "purchase_agreement": 0.985,
+  "purchase_agreement": 0.99,
+  "route_shares": {
+    "linear": 0.65,
+    "peak_contract": 0.35
+  },
+  "dominant_route": "linear",
+  "dominant_route_share": 0.65,
+  "route_walls": {
+    "linear": 96.57125,
+    "peak_contract": 99.014904
+  },
+  "route_progress": {
+    "linear": {
+      "resets_to_10x": 3,
+      "first_wall_minutes": 96.57125,
+      "second_run_minutes": 124.919353,
+      "time_to_second_prestige_minutes": 221.490603,
+      "multiplier": 720.57594,
+      "stopped_on": "multiplier"
+    },
+    "peak": {
+      "resets_to_10x": 2,
+      "first_wall_minutes": 99.014904,
+      "second_run_minutes": 206.113634,
+      "time_to_second_prestige_minutes": 305.128538,
+      "multiplier": 16.777216,
+      "stopped_on": "multiplier"
+    }
+  },
   "purchase_count": 203,
   "session_cadence": 5.5,
   "retention": {
