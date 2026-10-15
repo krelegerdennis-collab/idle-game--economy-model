@@ -289,36 +289,49 @@ def route_name(purchases: list[dict[str, object]], branch_ids: set[str]) -> str:
 
 
 def _contract_choice(economy: Economy, result: dict[str, object]) -> dict[str, object]:
-    """Whether this ROI run bought a branch, and the owned count at that moment."""
+    """Whether this ROI run bought a branch, and every stage of that purchase."""
     purchases = result["purchases"]
     assert isinstance(purchases, list)
     branch_ids = _branch_ids(economy)
     branches = {branch.id: branch for branch in economy.branches}
-    bought: dict[str, object] | None = None
-    for purchase in purchases:
-        generator_id = str(purchase["generator_id"])
-        if generator_id in branch_ids:
-            bought = purchase
-            break
+    bought = [
+        purchase
+        for purchase in purchases
+        if str(purchase["generator_id"]) in branch_ids
+    ]
     record: dict[str, object] = {
         "policy": result["policy"],
         "seed": result.get("seed"),
-        "bought": bought is not None,
+        "bought": bool(bought),
         "route": route_name(purchases, branch_ids),
+        "stage_count": len(bought),
     }
-    if bought is None:
+    if not bought:
         return record
-    branch_id = str(bought["generator_id"])
+    first = bought[0]
+    last = bought[-1]
+    branch_id = str(first["generator_id"])
     branch = branches[branch_id]
-    total_owned = int(bought["total_owned"])
+    total_owned = int(first["total_owned"])
+    stages = [
+        {
+            "level": int(purchase["owned_after"]),
+            "active_minutes": round(float(purchase["active_seconds"]) / 60.0, 6),
+            "total_owned": int(purchase["total_owned"]),
+        }
+        for purchase in bought
+    ]
     record.update(
         {
             "branch_id": branch_id,
-            "active_minutes": round(float(bought["active_seconds"]) / 60.0, 6),
+            "active_minutes": stages[0]["active_minutes"],
+            "last_active_minutes": stages[-1]["active_minutes"],
             "total_owned": total_owned,
+            "last_total_owned": int(last["total_owned"]),
             "commit_threshold": commit_threshold(branch.commit_threshold_formula, total_owned),
             "peak_total_owned_at_least": branch.peak_total_owned_at_least,
             "copies_until_peak": branch.peak_total_owned_at_least - total_owned,
+            "stages": stages,
         }
     )
     return record
@@ -375,6 +388,13 @@ def purchase_agreement(economy: Economy, primary: dict[str, object]) -> dict[str
     shares = {route: weight / total for route, weight in route_weights.items()} if total else {}
     dominant_route = max(shares, key=shares.get) if shares else "linear"
     bought = sum(1 for choice in contract_choices if choice["bought"])
+    stage_minutes = [
+        float(stage["active_minutes"])
+        for choice in contract_choices
+        for stage in choice.get("stages", [])
+        if isinstance(stage, dict)
+    ]
+    window = (max(stage_minutes) - min(stage_minutes)) if stage_minutes else None
     return {
         "agreement": agreement,
         "authored_order": authored,
@@ -389,6 +409,7 @@ def purchase_agreement(economy: Economy, primary: dict[str, object]) -> dict[str
         "contract_choices": contract_choices,
         "contract_take_rate": (bought / len(contract_choices)) if contract_choices else 0.0,
         "contract_run_count": len(contract_choices),
+        "contract_window_minutes": window,
     }
 
 
@@ -509,6 +530,7 @@ def build_report(economy: Economy, *, include_population: bool = True) -> dict[s
         "route_progress": route_progress,
         "contract_take_rate": agreement_report.get("contract_take_rate", 0.0),
         "contract_run_count": agreement_report.get("contract_run_count", 0),
+        "contract_window_minutes": agreement_report.get("contract_window_minutes"),
         "contract_choices": agreement_report.get("contract_choices", []),
         "purchase_count": len(primary["purchases"]),
         "session_cadence": cadence,
@@ -641,14 +663,24 @@ def _format_contracts(report: dict[str, object]) -> str:
         return f"{rate:.0%} of {len(choices)} ROI runs"
     owned = [int(item["total_owned"]) for item in bought]
     minutes = [float(item["active_minutes"]) for item in bought]
+    stage_minutes = [
+        float(stage["active_minutes"])
+        for item in bought
+        for stage in item.get("stages", [])
+        if isinstance(stage, dict)
+    ]
+    if not stage_minutes:
+        stage_minutes = minutes
     peak = bought[0].get("peak_total_owned_at_least")
     short = [int(item["copies_until_peak"]) for item in bought]
-    span = max(minutes) - min(minutes)
+    span = max(stage_minutes) - min(stage_minutes)
+    stages = [int(item.get("stage_count", 1)) for item in bought]
     return (
         f"{rate:.0%} of {len(choices)} ROI runs, "
-        f"at total owned {min(owned)}–{max(owned)} "
+        f"stages {min(stages)}–{max(stages)}, "
+        f"first buy at total owned {min(owned)}–{max(owned)} "
         f"({min(short)}–{max(short)} copies before the peak at {peak}), "
-        f"t={min(minutes):.2f}–{max(minutes):.2f} min "
+        f"t={min(stage_minutes):.2f}–{max(stage_minutes):.2f} min "
         f"(window {span:.2f} min)"
     )
 

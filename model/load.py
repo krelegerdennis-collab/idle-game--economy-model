@@ -129,6 +129,10 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
             base=int(formula_raw["base"]),
             owned_divisor=int(formula_raw["owned_divisor"]),
         )
+        structure = str(raw.get("structure", "single"))
+        if structure not in {"single", "multi_stage"}:
+            raise ValueError(f"{raw.get('id', 'branch')} structure must be single or multi_stage")
+        peak_net_cap = raw.get("peak_net_cap")
         branch = Branch(
             id=str(raw["id"]),
             cost_base=float(raw["cost_base"]),
@@ -138,14 +142,28 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
             peak_production_multiplier=float(raw["peak_production_multiplier"]),
             peak_total_owned_at_least=int(raw["peak_total_owned_at_least"]),
             commit_threshold_formula=formula,
+            structure=structure,
+            peak_multiplier_per_stage=float(raw.get("peak_multiplier_per_stage", 0)),
+            peak_net_cap=None if peak_net_cap is None else float(peak_net_cap),
         )
-        if branch.growth_rate <= 1 or branch.cost_base <= 0:
+        if branch.cost_base <= 0:
+            raise ValueError(f"{branch.id} cost_base must be > 0")
+        if branch.structure == "multi_stage":
+            if branch.growth_rate < 1:
+                raise ValueError(f"{branch.id} growth_rate must be >= 1")
+            if branch.max_level < 2:
+                raise ValueError(f"{branch.id} multi_stage max_level must be >= 2")
+            if branch.peak_multiplier_per_stage <= 0:
+                raise ValueError(f"{branch.id} peak_multiplier_per_stage must be > 0")
+            if branch.peak_net_cap is None or branch.peak_net_cap <= 1:
+                raise ValueError(f"{branch.id} peak_net_cap must exceed 1")
+        elif branch.growth_rate <= 1:
             raise ValueError(f"{branch.id} cost must grow exponentially from a positive base")
         if branch.max_level < 1:
             raise ValueError(f"{branch.id} max_level must be >= 1")
         if not 0 < branch.active_production_multiplier < 1:
             raise ValueError(f"{branch.id} active_production_multiplier must be between 0 and 1")
-        if branch.peak_net_multiplier <= 1:
+        if branch.structure != "multi_stage" and branch.peak_net_multiplier <= 1:
             raise ValueError(f"{branch.id} peak net multiplier must exceed 1, otherwise it is not a peak")
         if branch.peak_total_owned_at_least < 1:
             raise ValueError(f"{branch.id} peak_total_owned_at_least must be >= 1")

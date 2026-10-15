@@ -3,7 +3,9 @@ description: Economy simulation rules
 alwaysApply: true
 ---
 # Economy Rules
-- All cost formulas use exponential growth: cost_base × growth^owned.
+- Generator costs use exponential growth: cost_base × growth^owned.
+  A multi-stage contract may charge a flat stage price (growth_rate 1)
+  because max_level bounds the spend.
 - Production scaling must be sub-exponential relative to cost scaling,
   or the economy breaks (infinite money glitch).
 - Prestige multipliers reset on prestige but compound across runs.
