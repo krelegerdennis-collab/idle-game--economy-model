@@ -37,6 +37,7 @@ class SimulationConfig:
     population_weights: dict[str, float]
     ten_x_production_multiplier: float
     max_prestige_resets: int
+    roi_horizon_minutes: float
 
 
 @dataclass(frozen=True)
@@ -194,6 +195,15 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
     weights = {str(key): float(value) for key, value in simulation_file["population_weights"].items()}
     if any(value < 0 for value in weights.values()) or sum(weights.values()) <= 0:
         raise ValueError("population_weights must be non-negative and sum to more than 0")
+    known_policies = {"roi", "roi_noisy", "patient", "cheapest"}
+    unknown = set(weights).difference(known_policies)
+    if unknown:
+        raise ValueError(
+            f"unknown population policy {sorted(unknown)}; ROI is the only purchase objective"
+        )
+    roi_horizon_minutes = float(simulation_file["roi_horizon_minutes"])
+    if roi_horizon_minutes <= 0:
+        raise ValueError("roi_horizon_minutes must be > 0")
     simulation = SimulationConfig(
         max_active_seconds=float(simulation_file["max_active_seconds"]),
         max_purchases=int(simulation_file["max_purchases"]),
@@ -205,11 +215,14 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
         population_weights=weights,
         ten_x_production_multiplier=float(simulation_file["ten_x_production_multiplier"]),
         max_prestige_resets=int(simulation_file["max_prestige_resets"]),
+        roi_horizon_minutes=roi_horizon_minutes,
     )
     if simulation.ten_x_production_multiplier <= 1:
         raise ValueError("ten_x_production_multiplier must be > 1")
     if simulation.max_prestige_resets < 1:
         raise ValueError("max_prestige_resets must be >= 1")
+    if simulation.primary_policy not in known_policies:
+        raise ValueError(f"unknown primary_policy: {simulation.primary_policy}")
 
     projection = {str(key): float(value) for key, value in retention_file["projection"].items()}
     retention = RetentionTargets(
