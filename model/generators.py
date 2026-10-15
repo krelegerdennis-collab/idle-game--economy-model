@@ -26,14 +26,27 @@ class Milestone:
 
 
 @dataclass(frozen=True)
+class CommitThresholdFormula:
+    """Scaling close for a branch offer.
+
+    commit_threshold = base + floor(total_owned / owned_divisor)
+
+    The cap moves with progress. It is not a fixed owned count.
+    """
+
+    base: int
+    owned_divisor: int
+
+
+@dataclass(frozen=True)
 class Branch:
     """A purchased modifier that competes with buying the next generator.
 
     `active_production_multiplier` applies as soon as the branch is owned and
     must be below 1. `peak_production_multiplier` applies only once total
-    generator copies reach `peak_total_owned_at_least`. The offer closes at
-    `commit_before_total_owned`, which is at or before that peak, so the
-    purchase is only available while its immediate effect is still a penalty.
+    generator copies reach `peak_total_owned_at_least`. The offer stays open
+    while total owned is still under `commit_threshold` and under that peak,
+    so the purchase is only available while its immediate effect is a penalty.
     """
 
     id: str
@@ -43,7 +56,7 @@ class Branch:
     active_production_multiplier: float
     peak_production_multiplier: float
     peak_total_owned_at_least: int
-    commit_before_total_owned: int
+    commit_threshold_formula: CommitThresholdFormula
 
     @property
     def peak_net_multiplier(self) -> float:
@@ -57,6 +70,31 @@ class Generator:
     cost_base: float
     growth_rate: float
     production_base: float
+
+
+def commit_threshold(formula: CommitThresholdFormula, total_owned: int) -> int:
+    """base + floor(total_owned / owned_divisor)."""
+    if total_owned < 0:
+        raise ValueError("total_owned must be >= 0")
+    if formula.base < 1:
+        raise ValueError("commit threshold base must be >= 1")
+    if formula.owned_divisor < 1:
+        raise ValueError("owned_divisor must be >= 1")
+    return formula.base + math.floor(total_owned / formula.owned_divisor)
+
+
+def offer_is_open(branch: Branch, total_owned: int) -> bool:
+    """True while the contract can still be bought as a production dip.
+
+    The scaling cap and the peak both have to sit strictly above total owned.
+    Once total owned has reached the peak, the modifier would raise production
+    immediately, so the offer is no longer a commit.
+    """
+    if total_owned < 0:
+        raise ValueError("total_owned must be >= 0")
+    if total_owned >= branch.peak_total_owned_at_least:
+        return False
+    return total_owned < commit_threshold(branch.commit_threshold_formula, total_owned)
 
 
 def cost_next(cost_base: float, growth_rate: float, owned: int) -> float:

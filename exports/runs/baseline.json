@@ -1,5 +1,5 @@
 {
-  "data_fingerprint": "7fef3812e972",
+  "data_fingerprint": "d424c23490c0",
   "policy": "roi",
   "stopped_on": "prestige_wall",
   "prestige_wall_seconds": 5831.55822,
@@ -87,7 +87,7 @@
       "branch_id": "peak_contract",
       "active_minutes": 20.699772,
       "total_owned": 54,
-      "commit_before_total_owned": 55,
+      "commit_threshold": 55,
       "peak_total_owned_at_least": 68,
       "copies_until_peak": 14
     },
@@ -105,7 +105,7 @@
       "branch_id": "peak_contract",
       "active_minutes": 22.42725,
       "total_owned": 54,
-      "commit_before_total_owned": 55,
+      "commit_threshold": 55,
       "peak_total_owned_at_least": 68,
       "copies_until_peak": 14
     },
@@ -117,7 +117,7 @@
       "branch_id": "peak_contract",
       "active_minutes": 22.040203,
       "total_owned": 52,
-      "commit_before_total_owned": 55,
+      "commit_threshold": 55,
       "peak_total_owned_at_least": 68,
       "copies_until_peak": 16
     },
@@ -129,7 +129,7 @@
       "branch_id": "peak_contract",
       "active_minutes": 21.08989,
       "total_owned": 53,
-      "commit_before_total_owned": 55,
+      "commit_threshold": 55,
       "peak_total_owned_at_least": 68,
       "copies_until_peak": 15
     },
@@ -165,7 +165,7 @@
       "branch_id": "peak_contract",
       "active_minutes": 23.725792,
       "total_owned": 54,
-      "commit_before_total_owned": 55,
+      "commit_threshold": 55,
       "peak_total_owned_at_least": 68,
       "copies_until_peak": 14
     },
@@ -183,7 +183,7 @@
       "branch_id": "peak_contract",
       "active_minutes": 20.308883,
       "total_owned": 54,
-      "commit_before_total_owned": 55,
+      "commit_threshold": 55,
       "peak_total_owned_at_least": 68,
       "copies_until_peak": 14
     },
@@ -195,7 +195,7 @@
       "branch_id": "peak_contract",
       "active_minutes": 20.70067,
       "total_owned": 54,
-      "commit_before_total_owned": 55,
+      "commit_threshold": 55,
       "peak_total_owned_at_least": 68,
       "copies_until_peak": 14
     },
@@ -213,7 +213,7 @@
       "branch_id": "peak_contract",
       "active_minutes": 21.701813,
       "total_owned": 54,
-      "commit_before_total_owned": 55,
+      "commit_threshold": 55,
       "peak_total_owned_at_least": 68,
       "copies_until_peak": 14
     },
@@ -225,7 +225,7 @@
       "branch_id": "peak_contract",
       "active_minutes": 21.331513,
       "total_owned": 54,
-      "commit_before_total_owned": 55,
+      "commit_threshold": 55,
       "peak_total_owned_at_least": 68,
       "copies_until_peak": 14
     },
@@ -237,7 +237,7 @@
       "branch_id": "peak_contract",
       "active_minutes": 23.869517,
       "total_owned": 54,
-      "commit_before_total_owned": 55,
+      "commit_threshold": 55,
       "peak_total_owned_at_least": 68,
       "copies_until_peak": 14
     },
@@ -249,7 +249,7 @@
       "branch_id": "peak_contract",
       "active_minutes": 22.059803,
       "total_owned": 54,
-      "commit_before_total_owned": 55,
+      "commit_threshold": 55,
       "peak_total_owned_at_least": 68,
       "copies_until_peak": 14
     },
@@ -267,7 +267,7 @@
       "branch_id": "peak_contract",
       "active_minutes": 21.746147,
       "total_owned": 54,
-      "commit_before_total_owned": 55,
+      "commit_threshold": 55,
       "peak_total_owned_at_least": 68,
       "copies_until_peak": 14
     },

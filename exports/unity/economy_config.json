@@ -81,7 +81,10 @@
       "activeProductionMultiplier": 0.7,
       "peakProductionMultiplier": 1.8,
       "peakTotalOwnedAtLeast": 68,
-      "commitBeforeTotalOwned": 55
+      "commitThresholdFormula": {
+        "base": 50,
+        "ownedDivisor": 10
+      }
     }
   ],
   "prestige": {
