@@ -80,7 +80,7 @@
       "maxLevel": 1,
       "activeProductionMultiplier": 0.7,
       "peakProductionMultiplier": 1.8,
-      "peakTotalOwnedAtLeast": 70,
+      "peakTotalOwnedAtLeast": 68,
       "commitBeforeTotalOwned": 55
     }
   ],

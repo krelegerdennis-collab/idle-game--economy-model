@@ -20,6 +20,7 @@ from model.generators import (
     marginal_production,
     production_is_subexponential,
     production_total,
+    return_on_cost,
     tiers_are_subexponential,
     upgrade_multiplier,
 )
@@ -30,7 +31,8 @@ from model.prestige import apply_prestige, prestige_multiplier, prestige_points,
 from model.retention import project_retention
 from sim.compare_runs import load_other, verdict
 from sim.export_unity import build_unity_payload, spreadsheet_frame, write_exports
-from sim.run_simulation import build_report, main as run_main, simulate_run
+from sim.policies import choose
+from sim.run_simulation import build_report, initial_state, main as run_main, simulate_run
 
 DATA = ROOT / "data"
 
@@ -54,6 +56,16 @@ def test_cost_formula_matches_spec():
     curve = cost_curve(10, 1.15, owned)
     for count, value in zip(owned, curve):
         assert value == pytest.approx(cost_next(10, 1.15, int(count)))
+
+
+def test_return_on_cost_scales_with_the_active_horizon():
+    generator = Generator("generator_1", 1, 10, 1.15, 2)
+    short = return_on_cost(generator, 0, (), 1.0, horizon_seconds=1)
+    long = return_on_cost(generator, 0, (), 1.0, horizon_seconds=600)
+    assert short == pytest.approx(marginal_production(generator, 0, (), 1.0) / 10)
+    assert long == pytest.approx(short * 600)
+    with pytest.raises(ValueError, match="horizon_seconds"):
+        return_on_cost(generator, 0, (), 1.0, horizon_seconds=0)
 
 
 def test_production_formula_matches_spec():
@@ -218,26 +230,36 @@ def test_shipped_model_meets_retention_constraints():
     assert 5 <= float(report["session_cadence"]) <= 6
     assert float(report["purchase_agreement"]) >= 0.8
     assert float(report["dominant_route_share"]) < 0.8
-    assert report["dominant_route"] == "linear"
-    assert float(report["route_shares"]["linear"]) == pytest.approx(0.65)
-    assert float(report["route_shares"]["peak_contract"]) == pytest.approx(0.35)
+    assert report["dominant_route"] == "peak_contract"
+    assert report["route_run_counts"] == {"peak_contract": 12, "linear": 9}
+    assert float(report["route_shares"]["peak_contract"]) == pytest.approx(12 / 21)
+    assert float(report["route_shares"]["linear"]) == pytest.approx(9 / 21)
+    assert float(report["contract_take_rate"]) == pytest.approx(12 / 21)
+    assert float(report["roi_horizon_minutes"]) == pytest.approx(10)
+    bought = [choice for choice in report["contract_choices"] if choice["bought"]]
+    assert bought
+    assert {choice["total_owned"] for choice in bought} <= {52, 53, 54}
     for route_name, minutes in report["route_walls"].items():
         assert 90 <= float(minutes) <= 120, route_name
     progress = report["route_progress"]
-    assert progress["linear"]["resets_to_10x"] == 3
-    assert progress["linear"]["time_to_second_prestige_minutes"] == pytest.approx(221.490603, abs=1e-4)
-    assert progress["peak"]["time_to_second_prestige_minutes"] > progress["linear"]["time_to_second_prestige_minutes"]
+    assert progress["peak_contract"]["resets_to_10x"] == 2
+    assert progress["peak_contract"]["run_routes"] == ["peak_contract", "peak_contract"]
+    assert progress["peak_contract"]["time_to_second_prestige_minutes"] == pytest.approx(302.433108, abs=1e-4)
+    assert progress["linear"]["run_routes"] == ["linear", "peak_contract"]
+    assert progress["linear"]["time_to_second_prestige_minutes"] == pytest.approx(304.154113, abs=1e-4)
     assert report["unlock_order"] == [
         "generator_1",
         "generator_2",
         "generator_3",
         "generator_4",
         "generator_5",
+        "generator_6",
     ]
     assert report["points_gained"] == 1
     assert report["multiplier_after_prestige"] == pytest.approx(1.6)
-    assert float(report["retention"]["d1"]) == pytest.approx(0.4062, abs=1e-4)
-    assert float(report["retention"]["d7"]) == pytest.approx(0.193429, abs=1e-4)
+    assert float(report["prestige_wall_minutes"]) == pytest.approx(97.192637, abs=1e-4)
+    assert float(report["retention"]["d1"]) == pytest.approx(0.404895, abs=1e-6)
+    assert float(report["retention"]["d7"]) == pytest.approx(0.192807, abs=1e-6)
     assert float(report["retention"]["d30"]) == pytest.approx(0.08)
     assert report["monetization_gate"]["active"] is True
     assert report["free_path"] == "decline_offer"
@@ -248,18 +270,21 @@ def test_shipped_model_meets_retention_constraints():
     assert "prestige_trigger" in names
 
 
-def test_peak_contract_is_not_an_active_roi_purchase():
-    """Immediate production falls, so ROI refuses the branch. Peak players buy it."""
+def test_roi_buys_the_contract_only_near_the_commit_cap():
+    """The dip is immediate. Horizon ROI buys only once the peak fits in the window."""
     economy = load_economy()
     branch = economy.branches[0]
     assert branch.active_production_multiplier < 1
     assert branch.peak_net_multiplier > 1
     assert branch.commit_before_total_owned <= branch.peak_total_owned_at_least
-    roi = simulate_run(economy, policy="roi")
-    peak = simulate_run(economy, policy="peak")
-    assert roi["state"].branch_levels["peak_contract"] == 0
-    assert peak["state"].branch_levels["peak_contract"] == 1
-    assert 90 <= float(peak["wall"]["t_minutes"]) <= 120
+    with pytest.raises(ValueError, match="peak"):
+        choose(economy, initial_state(economy), "peak")
+    result = simulate_run(economy, policy="roi")
+    bought = [purchase for purchase in result["purchases"] if purchase["kind"] == "branch"]
+    assert len(bought) == 1
+    assert bought[0]["total_owned"] == branch.commit_before_total_owned - 1
+    assert result["state"].branch_levels["peak_contract"] == 1
+    assert 90 <= float(result["wall"]["t_minutes"]) <= 120
 
 
 def test_second_run_reaches_the_same_lifetime_faster():
@@ -349,6 +374,71 @@ def test_compare_verdict_picks_the_closer_wall_and_better_d7():
 def test_compare_unknown_spec_fails():
     with pytest.raises(FileNotFoundError):
         load_other("not-a-real-ref")
+
+
+def _write_branch_curve(directory: Path, *, peak_at: int, commit: int, peak_multiplier: float) -> None:
+    generators = json.loads((directory / "generators.json").read_text(encoding="utf-8"))
+    generators["starting_currency"] = 1000
+    generators["active_click_per_second"] = 0
+    generators["generators"] = [
+        {
+            "id": "generator_1",
+            "tier": 1,
+            "cost_base": 10,
+            "growth_rate": 1.5,
+            "production_base": 100,
+        }
+    ]
+    (directory / "generators.json").write_text(json.dumps(generators), encoding="utf-8")
+    upgrades = json.loads((directory / "upgrades.json").read_text(encoding="utf-8"))
+    upgrades["branches"] = [
+        {
+            "id": "peak_contract",
+            "cost_base": 10,
+            "growth_rate": 1.5,
+            "max_level": 1,
+            "active_production_multiplier": 0.8,
+            "peak_production_multiplier": peak_multiplier,
+            "peak_total_owned_at_least": peak_at,
+            "commit_before_total_owned": commit,
+        }
+    ]
+    (directory / "upgrades.json").write_text(json.dumps(upgrades), encoding="utf-8")
+    prestige = json.loads((directory / "prestige.json").read_text(encoding="utf-8"))
+    prestige["min_points_to_prestige"] = 100
+    prestige["stall_seconds"] = 100_000
+    (directory / "prestige.json").write_text(json.dumps(prestige), encoding="utf-8")
+
+
+def test_horizon_roi_buys_a_peak_inside_the_window(tmp_path: Path):
+    directory = _copy_data(tmp_path)
+    _write_branch_curve(directory, peak_at=3, commit=3, peak_multiplier=5)
+    economy = load_economy(directory)
+    choice = choose(economy, initial_state(economy), "roi")
+    assert choice is not None
+    assert choice.kind == "branch"
+    assert choice.roi > 0
+
+
+def test_horizon_roi_skips_a_peak_past_the_window(tmp_path: Path):
+    directory = _copy_data(tmp_path)
+    _write_branch_curve(directory, peak_at=5000, commit=4000, peak_multiplier=2)
+    economy = load_economy(directory)
+    choice = choose(economy, initial_state(economy), "roi")
+    assert choice is not None
+    assert choice.kind == "generator"
+
+
+def test_loader_rejects_a_second_purchase_objective(tmp_path: Path):
+    directory = _copy_data(tmp_path, **{"simulation.json": {"population_weights": {"roi": 1, "peak": 1}}})
+    with pytest.raises(ValueError, match="ROI"):
+        load_economy(directory)
+
+
+def test_loader_rejects_a_nonpositive_roi_horizon(tmp_path: Path):
+    directory = _copy_data(tmp_path, **{"simulation.json": {"roi_horizon_minutes": 0}})
+    with pytest.raises(ValueError, match="roi_horizon_minutes"):
+        load_economy(directory)
 
 
 def test_parse_economy_rejects_out_of_order_tiers():

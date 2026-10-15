@@ -208,11 +208,13 @@ def simulate_run(
 
     return {
         "policy": policy,
+        "seed": seed,
         "stopped_on": stopped_on,
         "t_seconds": current.t,
         "lifetime_currency": current.lifetime_currency,
         "currency": current.currency,
         "owned": dict(current.owned),
+        "branch_levels": dict(current.branch_levels),
         "purchases": purchases,
         "samples": samples,
         "unlock_order": unlock_order(purchases),
@@ -230,6 +232,7 @@ def _purchase_record(state: RunState, choice: Choice) -> dict[str, object]:
         "generator_id": choice.generator_id,
         "kind": choice.kind,
         "owned_after": owned_after,
+        "total_owned": sum(state.owned.values()),
         "cost": round(choice.cost, 6),
         "active_seconds": round(state.t, 4),
     }
@@ -284,8 +287,44 @@ def route_name(purchases: list[dict[str, object]], branch_ids: set[str]) -> str:
     return "linear"
 
 
+def _contract_choice(economy: Economy, result: dict[str, object]) -> dict[str, object]:
+    """Whether this ROI run bought a branch, and the owned count at that moment."""
+    purchases = result["purchases"]
+    assert isinstance(purchases, list)
+    branch_ids = _branch_ids(economy)
+    branches = {branch.id: branch for branch in economy.branches}
+    bought: dict[str, object] | None = None
+    for purchase in purchases:
+        generator_id = str(purchase["generator_id"])
+        if generator_id in branch_ids:
+            bought = purchase
+            break
+    record: dict[str, object] = {
+        "policy": result["policy"],
+        "seed": result.get("seed"),
+        "bought": bought is not None,
+        "route": route_name(purchases, branch_ids),
+    }
+    if bought is None:
+        return record
+    branch_id = str(bought["generator_id"])
+    branch = branches[branch_id]
+    total_owned = int(bought["total_owned"])
+    record.update(
+        {
+            "branch_id": branch_id,
+            "active_minutes": round(float(bought["active_seconds"]) / 60.0, 6),
+            "total_owned": total_owned,
+            "commit_before_total_owned": branch.commit_before_total_owned,
+            "peak_total_owned_at_least": branch.peak_total_owned_at_least,
+            "copies_until_peak": branch.peak_total_owned_at_least - total_owned,
+        }
+    )
+    return record
+
+
 def purchase_agreement(economy: Economy, primary: dict[str, object]) -> dict[str, object]:
-    """Weighted generator-order agreement, plus the share of each authored route."""
+    """Weighted generator-order agreement, plus the share of each ROI route."""
     authored = [generator.id for generator in economy.generators]
     branch_ids = _branch_ids(economy)
     weights = economy.simulation.population_weights
@@ -304,7 +343,7 @@ def purchase_agreement(economy: Economy, primary: dict[str, object]) -> dict[str
         )
         samples.append((noisy, noisy_weight / runs))
 
-    for policy in ("patient", "cheapest", "peak"):
+    for policy in ("patient", "cheapest"):
         weight = weights.get(policy, 0)
         if weight > 0:
             samples.append((simulate_run(economy, policy=policy), weight))
@@ -313,6 +352,9 @@ def purchase_agreement(economy: Economy, primary: dict[str, object]) -> dict[str
     legible_weight = 0.0
     route_weights: dict[str, float] = {}
     route_walls: dict[str, float] = {}
+    route_examples: dict[str, dict[str, object]] = {}
+    route_run_counts: dict[str, int] = {}
+    contract_choices: list[dict[str, object]] = []
     for result, weight in samples:
         purchases = result["purchases"]
         assert isinstance(purchases, list)
@@ -321,21 +363,31 @@ def purchase_agreement(economy: Economy, primary: dict[str, object]) -> dict[str
             legible_weight += weight
         route = route_name(purchases, branch_ids)
         route_weights[route] = route_weights.get(route, 0.0) + weight
+        route_run_counts[route] = route_run_counts.get(route, 0) + 1
         wall = result["wall"]
         if route not in route_walls and isinstance(wall, dict):
             route_walls[route] = float(wall["t_minutes"])
+        if route not in route_examples:
+            route_examples[route] = {"policy": result["policy"], "seed": result.get("seed")}
+        contract_choices.append(_contract_choice(economy, result))
     agreement = legible_weight / total if total else 0.0
     shares = {route: weight / total for route, weight in route_weights.items()} if total else {}
     dominant_route = max(shares, key=shares.get) if shares else "linear"
+    bought = sum(1 for choice in contract_choices if choice["bought"])
     return {
         "agreement": agreement,
         "authored_order": authored,
         "primary_order": primary_order,
         "primary_is_prefix": _is_legible(primary_order, authored),
         "route_shares": shares,
+        "route_run_counts": route_run_counts,
         "dominant_route": dominant_route,
         "dominant_route_share": shares.get(dominant_route, 0.0),
         "route_walls": route_walls,
+        "route_examples": route_examples,
+        "contract_choices": contract_choices,
+        "contract_take_rate": (bought / len(contract_choices)) if contract_choices else 0.0,
+        "contract_run_count": len(contract_choices),
     }
 
 
@@ -374,9 +426,14 @@ def build_report(economy: Economy, *, include_population: bool = True) -> dict[s
             "primary_order": order,
             "primary_is_prefix": _is_legible(order, authored),
             "route_shares": {},
+            "route_run_counts": {},
             "dominant_route": "linear",
             "dominant_route_share": None,
             "route_walls": {},
+            "route_examples": {},
+            "contract_choices": [],
+            "contract_take_rate": 0.0,
+            "contract_run_count": 0,
         }
     cadence = economy.offline.session_cadence
     retention = project_retention(
@@ -415,9 +472,16 @@ def build_report(economy: Economy, *, include_population: bool = True) -> dict[s
     )
     route_progress = {}
     if include_population and wall is not None:
-        route_progress["linear"] = climb_to_multiplier(economy, economy.simulation.primary_policy)
-        if economy.simulation.population_weights.get("peak", 0) > 0:
-            route_progress["peak"] = climb_to_multiplier(economy, "peak")
+        examples = agreement_report.get("route_examples") or {}
+        assert isinstance(examples, dict)
+        for name, example in examples.items():
+            assert isinstance(example, dict)
+            seed = example.get("seed")
+            route_progress[str(name)] = climb_to_multiplier(
+                economy,
+                str(example["policy"]),
+                seed=None if seed is None else int(seed),
+            )
     owned = primary["owned"]
     report: dict[str, object] = {
         "data_fingerprint": data_fingerprint(economy.data_dir) if economy.data_dir.is_dir() else None,
@@ -435,11 +499,16 @@ def build_report(economy: Economy, *, include_population: bool = True) -> dict[s
         "owned_final": owned,
         "unlock_order": agreement_report["primary_order"],
         "purchase_agreement": agreement_report["agreement"],
+        "roi_horizon_minutes": economy.simulation.roi_horizon_minutes,
         "route_shares": agreement_report.get("route_shares", {}),
+        "route_run_counts": agreement_report.get("route_run_counts", {}),
         "dominant_route": agreement_report.get("dominant_route"),
         "dominant_route_share": agreement_report.get("dominant_route_share"),
         "route_walls": agreement_report.get("route_walls", {}),
         "route_progress": route_progress,
+        "contract_take_rate": agreement_report.get("contract_take_rate", 0.0),
+        "contract_run_count": agreement_report.get("contract_run_count", 0),
+        "contract_choices": agreement_report.get("contract_choices", []),
         "purchase_count": len(primary["purchases"]),
         "session_cadence": cadence,
         "retention": {
@@ -476,16 +545,26 @@ def build_report(economy: Economy, *, include_population: bool = True) -> dict[s
     return _round_number(report)  # type: ignore[return-value]
 
 
-def climb_to_multiplier(economy: Economy, policy: str) -> dict[str, object]:
+def climb_to_multiplier(
+    economy: Economy,
+    policy: str,
+    *,
+    seed: int | None = None,
+) -> dict[str, object]:
     """Active-play resets until the prestige multiplier reaches the data target."""
     target = economy.simulation.ten_x_production_multiplier
     max_resets = economy.simulation.max_prestige_resets
     generator_ids = [generator.id for generator in economy.generators]
     state = None
     run_minutes: list[float] = []
+    run_routes: list[str] = []
+    branch_ids = _branch_ids(economy)
     final_multiplier = 1.0
     for _ in range(max_resets):
-        result = simulate_run(economy, policy=policy, state=state, stop_at_wall=True)
+        result = simulate_run(economy, policy=policy, seed=seed, state=state, stop_at_wall=True)
+        purchases = result["purchases"]
+        assert isinstance(purchases, list)
+        run_routes.append(route_name(purchases, branch_ids))
         wall = result["wall"]
         if not isinstance(wall, dict):
             second = run_minutes[1] if len(run_minutes) > 1 else None
@@ -495,6 +574,7 @@ def climb_to_multiplier(economy: Economy, policy: str) -> dict[str, object]:
                 "second_run_minutes": second,
                 "time_to_second_prestige_minutes": None if second is None else run_minutes[0] + second,
                 "multiplier": final_multiplier,
+                "run_routes": run_routes,
                 "stopped_on": result["stopped_on"],
             }
         run_minutes.append(float(wall["t_minutes"]))
@@ -508,6 +588,7 @@ def climb_to_multiplier(economy: Economy, policy: str) -> dict[str, object]:
                 "second_run_minutes": second,
                 "time_to_second_prestige_minutes": None if second is None else run_minutes[0] + second,
                 "multiplier": final_multiplier,
+                "run_routes": run_routes,
                 "stopped_on": "multiplier",
             }
     second = run_minutes[1] if len(run_minutes) > 1 else None
@@ -517,6 +598,7 @@ def climb_to_multiplier(economy: Economy, policy: str) -> dict[str, object]:
         "second_run_minutes": second,
         "time_to_second_prestige_minutes": None if second is None else run_minutes[0] + second,
         "multiplier": final_multiplier,
+        "run_routes": run_routes,
         "stopped_on": "reset_cap",
     }
 
@@ -548,6 +630,26 @@ def _events(primary: dict[str, object], wall: dict[str, object] | None, points: 
     return events
 
 
+def _format_contracts(report: dict[str, object]) -> str:
+    choices = report.get("contract_choices") or []
+    if not isinstance(choices, list) or not choices:
+        return "not measured"
+    bought = [item for item in choices if isinstance(item, dict) and item.get("bought")]
+    rate = float(report.get("contract_take_rate") or 0.0)
+    if not bought:
+        return f"{rate:.0%} of {len(choices)} ROI runs"
+    owned = [int(item["total_owned"]) for item in bought]
+    minutes = [float(item["active_minutes"]) for item in bought]
+    peak = bought[0].get("peak_total_owned_at_least")
+    short = [int(item["copies_until_peak"]) for item in bought]
+    return (
+        f"{rate:.0%} of {len(choices)} ROI runs, "
+        f"at total owned {min(owned)}–{max(owned)} "
+        f"({min(short)}–{max(short)} copies before the peak at {peak}), "
+        f"t={min(minutes):.2f}–{max(minutes):.2f} min"
+    )
+
+
 def _format_routes(report: dict[str, object]) -> str:
     shares = report.get("route_shares") or {}
     if not isinstance(shares, dict) or not shares:
@@ -567,10 +669,13 @@ def _format_second_prestige(report: dict[str, object]) -> str:
     for name, row in progress.items():
         if not isinstance(row, dict):
             continue
+        routes = row.get("run_routes") or []
+        route_text = " → ".join(str(item) for item in routes) if isinstance(routes, list) else ""
         parts.append(
             f"{name} {row.get('time_to_second_prestige_minutes')} min cumulative, "
             f"2nd run {row.get('second_run_minutes')} min, "
             f"{row.get('resets_to_10x')} resets to 10x"
+            + (f", runs {route_text}" if route_text else "")
         )
     return "; ".join(parts)
 
@@ -602,6 +707,8 @@ def format_report(report: dict[str, object]) -> str:
         f"  purchases: {report['purchase_count']}",
         f"  purchase-order agreement: {float(report['purchase_agreement']):.0%}",
         f"  routes: {_format_routes(report)}",
+        f"  ROI horizon: {report.get('roi_horizon_minutes')} min",
+        f"  contract takes: {_format_contracts(report)}",
         f"  time to 2nd prestige: {_format_second_prestige(report)}",
         f"  session cadence: {float(report['session_cadence']):.2f} check-ins/day",
         "  retention projection (design-time, not measured): "

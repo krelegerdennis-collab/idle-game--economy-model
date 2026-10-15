@@ -41,12 +41,14 @@ Verify every economy change against the simulation, not against a hunch.
    Compare prestige-wall time, the D1/D7/D30 projection, and session cadence.
    `python -m sim.compare_runs` diffs the current model against
    `exports/runs/baseline.json` or against another data directory or git ref.
-2. Check route shares, not a single generator line. Active ROI stays on
-   the generator order because it scores only the immediate production
-   change. The peak contract in `data/upgrades.json` is a second route:
-   slower until the owned threshold, then a higher peak. Neither route may
-   hold `dominant_route_max` or more of the weighted population. Generator
-   skips are still illegible. Both targets live in `data/retention_targets.json`.
+2. Check route shares from the ROI policy alone. ROI scores the production
+   change over `roi_horizon_minutes` of active play, or until the next
+   prestige, whichever comes first. The horizon lives in `data/simulation.json`.
+   The peak contract is the same objective: it can win when its peak lands
+   inside that window, and it loses while the dip is all the window can see.
+   There is no second purchase policy. A route that holds `dominant_route_max`
+   or more of ROI runs is still a failed split. Generator skips are still
+   illegible. Both targets live in `data/retention_targets.json`.
 3. Regenerate `exports/unity/economy_config.json` and confirm it matches
    `/data/`. If the JSON disagrees with the model, the model is wrong.
 
