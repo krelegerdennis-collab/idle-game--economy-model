@@ -14,4 +14,5 @@ alwaysApply: true
   play, or until the next prestige, whichever comes first. The horizon
   lives in `data/simulation.json`. A branch that dips and then peaks is
   ranked by that same ratio. There is no second purchase objective.
-  Cost stays `cost_base × growth^owned`.
+  Cost stays `cost_base × growth^owned`. A time-scaled contract locks its
+  peak at the purchase instant from `peak_time_reference_minutes` in data.

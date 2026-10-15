@@ -129,6 +129,9 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
             base=int(formula_raw["base"]),
             owned_divisor=int(formula_raw["owned_divisor"]),
         )
+        structure = str(raw.get("structure", "single"))
+        if structure not in {"single", "time_scaled"}:
+            raise ValueError(f"{raw.get('id', 'branch')} structure must be single or time_scaled")
         branch = Branch(
             id=str(raw["id"]),
             cost_base=float(raw["cost_base"]),
@@ -138,6 +141,8 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
             peak_production_multiplier=float(raw["peak_production_multiplier"]),
             peak_total_owned_at_least=int(raw["peak_total_owned_at_least"]),
             commit_threshold_formula=formula,
+            structure=structure,
+            peak_time_reference_minutes=float(raw.get("peak_time_reference_minutes", 0)),
         )
         if branch.growth_rate <= 1 or branch.cost_base <= 0:
             raise ValueError(f"{branch.id} cost must grow exponentially from a positive base")
@@ -145,6 +150,8 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
             raise ValueError(f"{branch.id} max_level must be >= 1")
         if not 0 < branch.active_production_multiplier < 1:
             raise ValueError(f"{branch.id} active_production_multiplier must be between 0 and 1")
+        if branch.structure == "time_scaled" and branch.peak_time_reference_minutes <= 0:
+            raise ValueError(f"{branch.id} peak_time_reference_minutes must be > 0")
         if branch.peak_net_multiplier <= 1:
             raise ValueError(f"{branch.id} peak net multiplier must exceed 1, otherwise it is not a peak")
         if branch.peak_total_owned_at_least < 1:

@@ -75,14 +75,16 @@
   "branches": [
     {
       "id": "peak_contract",
+      "structure": "time_scaled",
       "costBase": 25000.0,
       "growthRate": 1.15,
       "maxLevel": 1,
       "activeProductionMultiplier": 0.7,
       "peakProductionMultiplier": 1.8,
+      "peakTimeReferenceMinutes": 60.0,
       "peakTotalOwnedAtLeast": 68,
       "commitThresholdFormula": {
-        "base": 50,
+        "base": 200,
         "ownedDivisor": 10
       }
     }

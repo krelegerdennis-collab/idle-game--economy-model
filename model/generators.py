@@ -42,11 +42,18 @@ class CommitThresholdFormula:
 class Branch:
     """A purchased modifier that competes with buying the next generator.
 
-    `active_production_multiplier` applies as soon as the branch is owned and
-    must be below 1. `peak_production_multiplier` applies only once total
-    generator copies reach `peak_total_owned_at_least`. The offer stays open
-    while total owned is still under `commit_threshold` and under that peak,
-    so the purchase is only available while its immediate effect is a penalty.
+    `structure` is `single` or `time_scaled`. Both apply
+    `active_production_multiplier` immediately and a peak once total generator
+    copies reach `peak_total_owned_at_least`.
+
+    A time-scaled peak is locked at the purchase instant:
+
+        peak = peak_production_multiplier
+            * (1 - min(1, purchase_minutes / peak_time_reference_minutes))
+
+    Earlier purchases lock a higher peak and sit in the dip for longer.
+    Later purchases lock a lower peak. The offer stays open while total owned
+    is still under `commit_threshold` and under the peak.
     """
 
     id: str
@@ -57,10 +64,40 @@ class Branch:
     peak_production_multiplier: float
     peak_total_owned_at_least: int
     commit_threshold_formula: CommitThresholdFormula
+    structure: str = "single"
+    peak_time_reference_minutes: float = 0.0
 
     @property
     def peak_net_multiplier(self) -> float:
         return self.active_production_multiplier * self.peak_production_multiplier
+
+    def locked_peak_multiplier(self, purchase_seconds: float) -> float:
+        """Peak multiplier locked by buying at `purchase_seconds`."""
+        if self.structure != "time_scaled":
+            return self.peak_production_multiplier
+        if self.peak_time_reference_minutes <= 0:
+            raise ValueError(f"{self.id} peak_time_reference_minutes must be > 0")
+        if purchase_seconds < 0:
+            raise ValueError("purchase_seconds must be >= 0")
+        share = min(1.0, purchase_seconds / (self.peak_time_reference_minutes * 60.0))
+        return self.peak_production_multiplier * (1.0 - share)
+
+    def applied_multiplier(
+        self,
+        level: int,
+        total_owned: int,
+        locked_peak: float | None = None,
+    ) -> float:
+        """Production factor for `level` owned stages at this copy count."""
+        if level <= 0:
+            return 1.0
+        if level > self.max_level:
+            raise ValueError(f"{self.id} level {level} is above max_level {self.max_level}")
+        multiplier = self.active_production_multiplier ** level
+        if total_owned >= self.peak_total_owned_at_least:
+            peak = self.peak_production_multiplier if locked_peak is None else locked_peak
+            multiplier *= peak ** level
+        return multiplier
 
 
 @dataclass(frozen=True)
@@ -133,16 +170,16 @@ def generator_branch_multiplier(
     branches: tuple[Branch, ...],
     levels: dict[str, int],
     total_owned: int,
+    locked_peaks: dict[str, float] | None = None,
 ) -> float:
     """Product of owned branch modifiers. 1 when the player has bought none."""
+    locked = locked_peaks or {}
     multiplier = 1.0
     for branch in branches:
         level = levels.get(branch.id, 0)
         if level <= 0:
             continue
-        multiplier *= branch.active_production_multiplier ** level
-        if total_owned >= branch.peak_total_owned_at_least:
-            multiplier *= branch.peak_production_multiplier ** level
+        multiplier *= branch.applied_multiplier(level, total_owned, locked.get(branch.id))
     return multiplier
 
 
