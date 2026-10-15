@@ -90,16 +90,28 @@ def active_production(economy: Economy, state: RunState) -> float:
     prestige = prestige_multiplier(state.prestige_points, economy.prestige.point_value)
     clicks = economy.active_click_per_second * prestige
     total_owned = sum(state.owned.values())
-    branch = generator_branch_multiplier(economy.branches, state.branch_levels, total_owned)
+    branch = generator_branch_multiplier(
+        economy.branches,
+        state.branch_levels,
+        total_owned,
+        state.branch_locked_peaks,
+    )
     return clicks + generator_output(economy, state) * branch
 
 
-def _apply(state: RunState, choice: Choice) -> None:
+def _lock_peak(economy: Economy, state: RunState, branch_id: str) -> None:
+    branch = next(item for item in economy.branches if item.id == branch_id)
+    if branch.structure == "time_scaled":
+        state.branch_locked_peaks[branch_id] = branch.locked_peak_multiplier(state.t)
+
+
+def _apply(economy: Economy, state: RunState, choice: Choice) -> None:
     state.currency -= choice.cost
     if state.currency < 0 and abs(state.currency) < _PURCHASE_TOLERANCE * max(1.0, choice.cost):
         state.currency = 0.0
     if choice.kind == "branch":
         state.branch_levels[choice.generator_id] = state.branch_levels.get(choice.generator_id, 0) + 1
+        _lock_peak(economy, state, choice.generator_id)
         return
     state.owned[choice.generator_id] = state.owned.get(choice.generator_id, 0) + 1
 
@@ -162,7 +174,7 @@ def play_horizon(
         if sim.currency + _PURCHASE_TOLERANCE >= pending.cost:
             if sim.currency < pending.cost:
                 sim.currency = pending.cost
-            _apply(sim, pending)
+            _apply(economy, sim, pending)
             pending = None
             continue
         if rate <= 0 or not math.isfinite(rate):
@@ -182,7 +194,7 @@ def play_horizon(
             sim.currency += rate * step
             break
         sim.currency = pending.cost
-        _apply(sim, pending)
+        _apply(economy, sim, pending)
         pending = None
     return produced, elapsed, sim
 

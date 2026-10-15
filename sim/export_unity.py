@@ -54,11 +54,13 @@ def build_unity_payload(economy: Economy) -> dict[str, object]:
         "branches": [
             {
                 "id": branch.id,
+                "structure": branch.structure,
                 "costBase": branch.cost_base,
                 "growthRate": branch.growth_rate,
                 "maxLevel": branch.max_level,
                 "activeProductionMultiplier": branch.active_production_multiplier,
                 "peakProductionMultiplier": branch.peak_production_multiplier,
+                "peakTimeReferenceMinutes": branch.peak_time_reference_minutes,
                 "peakTotalOwnedAtLeast": branch.peak_total_owned_at_least,
                 "commitThresholdFormula": {
                     "base": branch.commit_threshold_formula.base,

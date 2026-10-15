@@ -217,59 +217,56 @@ def test_tiny_curve_buys_on_the_cost_formula(tmp_path: Path):
     assert result["wall"] is None
 
 
-def test_shipped_model_meets_retention_constraints():
+def test_time_scaled_peak_is_never_bought_on_the_first_run():
+    """The locked peak is already a nerf by the time the first run can use it.
+
+    peak = 1.8 * (1 - min(1, minutes / 60)). Net drops through 1 at about
+    minute 12, and the peak at 68 copies is not inside the 10 minute horizon
+    before then. Every first-run ROI player skips it, so the linear route
+    holds 100 percent and the 80 percent cap fails. The wall and D30 hold.
+    """
     report = build_report(load_economy())
     constraints = report["constraints"]
     assert isinstance(constraints, dict)
-    assert constraints["ok"] is True, constraints["failures"]
-    wall = float(report["prestige_wall_minutes"])
-    assert 90 <= wall <= 120
+    assert constraints["ok"] is False
+    assert constraints["failures"] == [
+        "dominant route share is 100%, at or above 80%; players have no real alternative"
+    ]
+    assert float(report["contract_take_rate"]) == pytest.approx(0)
+    assert report["route_run_counts"] == {"linear": 21}
+    assert float(report["dominant_route_share"]) == pytest.approx(1)
+    assert not any(choice["bought"] for choice in report["contract_choices"])
+    assert float(report["prestige_wall_minutes"]) == pytest.approx(96.57125, abs=1e-4)
+    assert 90 <= float(report["prestige_wall_minutes"]) <= 120
+    assert report["points_gained"] == 1
+    assert report["multiplier_after_prestige"] == pytest.approx(1.6)
     retention = report["retention"]
-    assert isinstance(retention, dict)
-    assert retention["d1"] >= 0.35
-    assert retention["d7"] >= 0.15
-    assert retention["d30"] >= 0.05
-    assert 5 <= float(report["session_cadence"]) <= 6
-    assert float(report["purchase_agreement"]) >= 0.8
-    assert float(report["dominant_route_share"]) < 0.8
-    assert report["dominant_route"] == "peak_contract"
-    assert report["route_run_counts"] == {"peak_contract": 12, "linear": 9}
-    assert float(report["route_shares"]["peak_contract"]) == pytest.approx(12 / 21)
-    assert float(report["route_shares"]["linear"]) == pytest.approx(9 / 21)
-    assert float(report["contract_take_rate"]) == pytest.approx(12 / 21)
-    assert float(report["roi_horizon_minutes"]) == pytest.approx(10)
-    bought = [choice for choice in report["contract_choices"] if choice["bought"]]
-    assert bought
-    assert {choice["total_owned"] for choice in bought} <= {52, 53, 54}
-    for route_name, minutes in report["route_walls"].items():
-        assert 90 <= float(minutes) <= 120, route_name
-    progress = report["route_progress"]
-    assert progress["peak_contract"]["resets_to_10x"] == 2
-    assert progress["peak_contract"]["run_routes"] == ["peak_contract", "peak_contract"]
-    assert progress["peak_contract"]["time_to_second_prestige_minutes"] == pytest.approx(302.433108, abs=1e-4)
-    assert progress["linear"]["run_routes"] == ["linear", "peak_contract"]
-    assert progress["linear"]["time_to_second_prestige_minutes"] == pytest.approx(304.154113, abs=1e-4)
+    assert retention["d1"] == pytest.approx(0.4062)
+    assert retention["d7"] == pytest.approx(0.193429, abs=1e-6)
+    assert retention["d30"] == pytest.approx(0.08)
+    progress = report["route_progress"]["linear"]
+    assert progress["time_to_second_prestige_minutes"] == pytest.approx(221.490603, abs=1e-4)
+    assert progress["second_run_minutes"] == pytest.approx(124.919353, abs=1e-4)
+    assert progress["run_routes"] == ["linear", "linear", "peak_contract"]
     assert report["unlock_order"] == [
         "generator_1",
         "generator_2",
         "generator_3",
         "generator_4",
         "generator_5",
-        "generator_6",
     ]
-    assert report["points_gained"] == 1
-    assert report["multiplier_after_prestige"] == pytest.approx(1.6)
-    assert float(report["prestige_wall_minutes"]) == pytest.approx(97.192637, abs=1e-4)
-    assert float(report["retention"]["d1"]) == pytest.approx(0.404895, abs=1e-6)
-    assert float(report["retention"]["d7"]) == pytest.approx(0.192807, abs=1e-6)
-    assert float(report["retention"]["d30"]) == pytest.approx(0.08)
+    assert 5 <= float(report["session_cadence"]) <= 6
     assert report["monetization_gate"]["active"] is True
-    assert report["free_path"] == "decline_offer"
-    assert report["constraints"]["ok"] is True
-    names = [event["name"] for event in report["events"]]
-    assert "session_begin" in names
-    assert "upgrade_purchase" in names
-    assert "prestige_trigger" in names
+
+
+def test_time_scaled_formula_pays_early_and_dies_by_minute_twenty():
+    branch = load_economy().branches[0]
+    assert branch.structure == "time_scaled"
+    assert branch.peak_time_reference_minutes == pytest.approx(60)
+    assert branch.locked_peak_multiplier(0) == pytest.approx(1.8)
+    assert branch.locked_peak_multiplier(20 * 60) == pytest.approx(1.2)
+    assert branch.active_production_multiplier * branch.locked_peak_multiplier(20 * 60) < 1
+    assert branch.locked_peak_multiplier(60 * 60) == pytest.approx(0)
 
 
 def test_commit_threshold_scales_and_still_closes_before_the_peak():
@@ -277,31 +274,24 @@ def test_commit_threshold_scales_and_still_closes_before_the_peak():
     economy = load_economy()
     branch = economy.branches[0]
     formula = branch.commit_threshold_formula
-    assert formula.base == 50
+    assert formula.base == 200
     assert formula.owned_divisor == 10
-    assert commit_threshold(formula, 0) == 50
-    assert commit_threshold(formula, 54) == 55
-    assert commit_threshold(formula, 60) == 56
-    assert offer_is_open(branch, 54)
-    assert offer_is_open(branch, 55) is False
+    assert commit_threshold(formula, 0) == 200
+    assert commit_threshold(formula, 67) == 206
+    assert offer_is_open(branch, 67)
     assert offer_is_open(branch, branch.peak_total_owned_at_least) is False
 
 
-def test_roi_buys_the_contract_only_near_the_scaling_cap():
-    """The dip is immediate. Horizon ROI buys on the last owned count the formula still allows."""
+def test_roi_skips_the_time_scaled_contract_on_the_opening_run():
+    """The offer stays open through the dip. Horizon ROI still does not buy it."""
     economy = load_economy()
-    branch = economy.branches[0]
-    assert branch.active_production_multiplier < 1
-    assert branch.peak_net_multiplier > 1
     with pytest.raises(ValueError, match="peak"):
         choose(economy, initial_state(economy), "peak")
     result = simulate_run(economy, policy="roi")
     bought = [purchase for purchase in result["purchases"] if purchase["kind"] == "branch"]
-    assert len(bought) == 1
-    owned = int(bought[0]["total_owned"])
-    assert offer_is_open(branch, owned)
-    assert offer_is_open(branch, owned + 1) is False
-    assert result["state"].branch_levels["peak_contract"] == 1
+    assert bought == []
+    assert result["state"].branch_levels["peak_contract"] == 0
+    assert result["state"].branch_locked_peaks == {}
     assert 90 <= float(result["wall"]["t_minutes"]) <= 120
 
 
@@ -339,8 +329,8 @@ def test_extreme_growth_breaks_constraints_and_stops():
     assert constraints["failures"]
 
 
-def test_run_simulation_cli_passes():
-    assert run_main(["--json"]) == 0
+def test_run_simulation_cli_stops_when_one_route_takes_every_run():
+    assert run_main(["--json"]) == 1
 
 
 def test_unity_export_matches_data(tmp_path: Path):
@@ -372,7 +362,7 @@ def test_baseline_report_matches_current_model():
     assert saved["data_fingerprint"] == report["data_fingerprint"]
     assert saved["prestige_wall_minutes"] == report["prestige_wall_minutes"]
     assert saved["retention"] == report["retention"]
-    assert saved["constraints"]["ok"] is True
+    assert saved["constraints"]["ok"] is False
 
 
 def test_compare_verdict_picks_the_closer_wall_and_better_d7():

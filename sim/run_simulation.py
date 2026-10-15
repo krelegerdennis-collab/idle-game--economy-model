@@ -53,6 +53,7 @@ def production_rate(economy: Economy, state: RunState) -> float:
         economy.branches,
         state.branch_levels,
         sum(state.owned.values()),
+        state.branch_locked_peaks,
     )
     return clicks + generators * branch
 
@@ -66,6 +67,7 @@ def initial_state(economy: Economy) -> RunState:
         prestige_points=0,
         prestige_count=0,
         branch_levels={branch.id: 0 for branch in economy.branches},
+        branch_locked_peaks={},
     )
 
 
@@ -112,7 +114,7 @@ def _advance(economy: Economy, state: RunState, dt: float, samples: list[dict[st
     return next_sample
 
 
-def _buy(state: RunState, choice: Choice) -> None:
+def _buy(economy: Economy, state: RunState, choice: Choice) -> None:
     if state.currency + _PURCHASE_TOLERANCE < choice.cost:
         raise RuntimeError(f"purchase of {choice.generator_id} without currency")
     state.currency -= choice.cost
@@ -120,6 +122,9 @@ def _buy(state: RunState, choice: Choice) -> None:
         state.currency = 0.0
     if choice.kind == "branch":
         state.branch_levels[choice.generator_id] = state.branch_levels.get(choice.generator_id, 0) + 1
+        branch = next(item for item in economy.branches if item.id == choice.generator_id)
+        if branch.structure == "time_scaled":
+            state.branch_locked_peaks[branch.id] = branch.locked_peak_multiplier(state.t)
         return
     state.owned[choice.generator_id] += 1
 
@@ -167,7 +172,7 @@ def simulate_run(
             stopped_on = "no_purchase"
             break
         if current.currency + _PURCHASE_TOLERANCE >= choice.cost:
-            _buy(current, choice)
+            _buy(economy, current, choice)
             purchases.append(_purchase_record(current, choice))
             continue
         rate = production_rate(economy, current)
@@ -201,7 +206,7 @@ def simulate_run(
         next_sample = _advance(economy, current, dt, samples, next_sample)
         if abs(current.currency - choice.cost) <= _PURCHASE_TOLERANCE * max(1.0, choice.cost):
             current.currency = choice.cost
-        _buy(current, choice)
+        _buy(economy, current, choice)
         purchases.append(_purchase_record(current, choice))
     else:
         if len(purchases) >= economy.simulation.max_purchases:

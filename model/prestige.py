@@ -29,6 +29,7 @@ class RunState:
     prestige_points: int = 0
     prestige_count: int = 0
     branch_levels: dict[str, int] = field(default_factory=dict)
+    branch_locked_peaks: dict[str, float] = field(default_factory=dict)
 
     def copy(self) -> RunState:
         return RunState(
@@ -39,6 +40,7 @@ class RunState:
             prestige_points=self.prestige_points,
             prestige_count=self.prestige_count,
             branch_levels=dict(self.branch_levels),
+            branch_locked_peaks=dict(self.branch_locked_peaks),
         )
 
 
