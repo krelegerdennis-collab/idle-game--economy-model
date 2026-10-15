@@ -34,6 +34,40 @@ The game engine comes later. The math comes first.
 - Every formula change must include a before/after simulation run.
 - If a change would break a retention constraint, stop and explain why.
 
+## Frozen baseline
+
+`exports/runs/baseline.json` is frozen. It records the single-purchase
+curve: dip 0.7, peak at 68 copies, commit threshold
+`50 + floor(total_owned / 10)`. Do not regenerate that file, and do not
+retune the contract, generator, or prestige numbers behind it, unless a
+playtest requires it.
+
+The first-run contract on that curve is unchanged by the relic axis:
+take rate 57% (12 of 21), purchase window 3.56 minutes (minute 20.31–23.87),
+first wall 97.19 minutes, one prestige point, D1/D7/D30 40.5% / 19.3% / 8.0%.
+
+## Second reward axis
+
+`data/relics.json` defines insight, a currency that is not the generator
+currency and does not buy the peak contract. Sources pay it once per run
+(owned-copy thresholds, and the moment a run is worth a prestige point).
+Relics bought with insight persist across prestige and never add prestige
+points. The prestige exchange is the competing sink: its points apply on
+the next reset only, so the current run's multiplier stays on the lifetime
+formula.
+
+Horizon ROI buys neither relics nor the exchange on the shipped curve.
+Offline earning is already at the 0.5 cap. Session-start effects do not
+replay in the middle of a run. The extra milestone sits at 75 copies of
+one generator, and the wall is reached at 58 of the highest generator, so
+that slot never enters the 10 minute horizon. Exchange points land after
+the reset, outside the same horizon. The run earns 5 insight and spends
+none. The contract window does not get wider, because insight is not an
+alternate place to spend generator currency.
+
+The baseline did not break. That is the result of the second axis, not a
+reason to go back and retune the contract.
+
 ## Verification loop
 Verify every economy change against the simulation, not against a hunch.
 

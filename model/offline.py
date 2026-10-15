@@ -10,6 +10,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+# Past this rate, being away beats playing. Not a tunable.
+OFFLINE_RATE_CAP = 0.5
+
 
 @dataclass(frozen=True)
 class OfflineConfig:
@@ -36,7 +39,7 @@ def offline_earnings(
     cap_seconds: float,
 ) -> float:
     """Currency earned while away, at a fraction of the live production rate."""
-    if offline_rate > 0.5:
+    if offline_rate > OFFLINE_RATE_CAP:
         raise ValueError("offline_rate must be <= 0.5")
     if offline_rate < 0:
         raise ValueError("offline_rate must be >= 0")

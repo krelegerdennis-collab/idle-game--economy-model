@@ -21,17 +21,15 @@ from pathlib import Path
 
 from model.generators import (
     commit_threshold,
-    generator_branch_multiplier,
     production_is_subexponential,
-    production_total,
     tiers_are_subexponential,
-    upgrade_multiplier,
 )
 from model.load import ROOT, Economy, load_economy
 from model.monetization import monetization_gate
 from model.prestige import RunState, apply_prestige, prestige_multiplier, prestige_points
+from model.relics import begin_session, claim_insight, effective_offline_rate, session_roll
 from model.retention import evaluate_constraints, project_retention
-from sim.policies import Choice, choose
+from sim.policies import Choice, active_production, choose, spend_insight
 
 _PURCHASE_TOLERANCE = 1e-8
 
@@ -41,20 +39,9 @@ def production_rate(economy: Economy, state: RunState) -> float:
 
     Branch modifiers apply to generator output only. Clicks stay available,
     so a slower-start contract cannot freeze the run at zero production.
+    Relic milestones and the session-open boost are included here.
     """
-    prestige = prestige_multiplier(state.prestige_points, economy.prestige.point_value)
-    clicks = economy.active_click_per_second * prestige
-    generators = 0.0
-    for generator in economy.generators:
-        owned = state.owned[generator.id]
-        multipliers = upgrade_multiplier(owned, economy.milestones) * prestige
-        generators += production_total(generator.production_base, owned, multipliers)
-    branch = generator_branch_multiplier(
-        economy.branches,
-        state.branch_levels,
-        sum(state.owned.values()),
-    )
-    return clicks + generators * branch
+    return active_production(economy, state)
 
 
 def initial_state(economy: Economy) -> RunState:
@@ -124,6 +111,30 @@ def _buy(state: RunState, choice: Choice) -> None:
     state.owned[choice.generator_id] += 1
 
 
+def _resolve_insight(economy: Economy, state: RunState, purchases: list[dict[str, object]]) -> None:
+    """Collect insight, then buy any relic the horizon says is worth it."""
+    claim_insight(
+        economy.relics,
+        state,
+        total_owned=sum(state.owned.values()),
+        prestige_points_ready=_points_ready(economy, state),
+    )
+    for choice in spend_insight(economy, state):
+        purchases.append(_insight_record(economy, state, choice))
+
+
+def _insight_record(economy: Economy, state: RunState, choice: Choice) -> dict[str, object]:
+    return {
+        "generator_id": choice.generator_id,
+        "kind": choice.kind,
+        "owned_after": state.relic_levels.get(choice.generator_id, 0),
+        "total_owned": sum(state.owned.values()),
+        "cost": round(choice.cost, 6),
+        "active_seconds": round(state.t, 4),
+        "currency": economy.relics.currency_id,
+    }
+
+
 def unlock_order(purchases: list[dict[str, object]]) -> list[str]:
     order: list[str] = []
     for purchase in purchases:
@@ -153,6 +164,13 @@ def simulate_run(
     rng = random.Random(seed) if policy == "roi_noisy" else None
     purchases: list[dict[str, object]] = []
     samples: list[dict[str, object]] = []
+    if not current.session_started:
+        begin_session(
+            economy.relics,
+            current,
+            session_roll(economy.simulation.noisy_seed, current.prestige_count),
+        )
+    _resolve_insight(economy, current, purchases)
     _record_sample(samples, current, economy)
     next_sample = economy.simulation.sample_every_seconds
     wall: dict[str, object] | None = None
@@ -162,6 +180,7 @@ def simulate_run(
         if stop_at_lifetime is not None and current.lifetime_currency >= stop_at_lifetime:
             stopped_on = "lifetime"
             break
+        _resolve_insight(economy, current, purchases)
         choice = choose(economy, current, policy, rng)
         if choice is None:
             stopped_on = "no_purchase"
@@ -273,6 +292,8 @@ def _branch_ids(economy: Economy) -> set[str]:
 def generator_unlock_order(purchases: list[dict[str, object]], branch_ids: set[str]) -> list[str]:
     order: list[str] = []
     for purchase in purchases:
+        if str(purchase.get("kind", "generator")) != "generator":
+            continue
         generator_id = str(purchase["generator_id"])
         if generator_id in branch_ids or generator_id in order:
             continue
@@ -405,6 +426,9 @@ def _round_number(value: object, digits: int = 6) -> object:
 def data_fingerprint(data_dir: Path) -> str:
     digest = hashlib.sha256()
     for path in sorted(data_dir.glob("*.json")):
+        # relics.json is the second axis. The frozen curve hash does not include it.
+        if path.name == "relics.json":
+            continue
         digest.update(path.name.encode())
         digest.update(path.read_bytes())
     return digest.hexdigest()[:12]
@@ -510,6 +534,19 @@ def build_report(economy: Economy, *, include_population: bool = True) -> dict[s
         "contract_take_rate": agreement_report.get("contract_take_rate", 0.0),
         "contract_run_count": agreement_report.get("contract_run_count", 0),
         "contract_choices": agreement_report.get("contract_choices", []),
+        "insight_balance": primary["state"].insight,
+        "relic_levels": dict(primary["state"].relic_levels),
+        "pending_prestige_points": primary["state"].pending_prestige_points,
+        "effective_offline_rate": effective_offline_rate(
+            economy.offline.offline_rate,
+            economy.relics.relics,
+            primary["state"].relic_levels,
+        ),
+        "insight_purchases": [
+            purchase
+            for purchase in primary["purchases"]
+            if isinstance(purchase, dict) and purchase.get("currency") == economy.relics.currency_id
+        ],
         "purchase_count": len(primary["purchases"]),
         "session_cadence": cadence,
         "retention": {
@@ -712,6 +749,9 @@ def format_report(report: dict[str, object]) -> str:
         f"  routes: {_format_routes(report)}",
         f"  ROI horizon: {report.get('roi_horizon_minutes')} min",
         f"  contract takes: {_format_contracts(report)}",
+        f"  insight: balance {report.get('insight_balance')}  "
+        f"relics {report.get('relic_levels') or '{}'}  "
+        f"pending prestige points {report.get('pending_prestige_points')}",
         f"  time to 2nd prestige: {_format_second_prestige(report)}",
         f"  session cadence: {float(report['session_cadence']):.2f} check-ins/day",
         "  retention projection (design-time, not measured): "

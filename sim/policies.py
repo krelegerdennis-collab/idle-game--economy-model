@@ -23,6 +23,7 @@ from model.generators import (
     return_on_cost,
     upgrade_multiplier,
 )
+from model.relics import Relic, effective_milestones, opening_boost
 from model.load import Economy
 from model.prestige import RunState, prestige_multiplier, prestige_points
 
@@ -57,7 +58,7 @@ def _instant_generators(economy: Economy, state: RunState, allowed: set[str] | N
         cost = cost_next(generator.cost_base, generator.growth_rate, owned)
         if not math.isfinite(cost) or cost <= 0:
             continue
-        marginal = marginal_production(generator, owned, economy.milestones, prestige)
+        marginal = marginal_production(generator, owned, _milestones(economy, state), prestige)
         if marginal <= 0 or not math.isfinite(marginal):
             continue
         choices.append(Choice(generator.id, cost, marginal))
@@ -74,13 +75,18 @@ def _patient_ids(economy: Economy, state: RunState) -> set[str]:
     return {economy.generators[index].id for index in range(last + 1)}
 
 
+def _milestones(economy: Economy, state: RunState) -> tuple:
+    return effective_milestones(economy.milestones, economy.relics.relics, state.relic_levels)
+
+
 def generator_output(economy: Economy, state: RunState) -> float:
     """Generator production before the branch modifier. Clicks are not included."""
     prestige = prestige_multiplier(state.prestige_points, economy.prestige.point_value)
+    milestones = _milestones(economy, state)
     total = 0.0
     for generator in economy.generators:
         owned = state.owned[generator.id]
-        multipliers = upgrade_multiplier(owned, economy.milestones) * prestige
+        multipliers = upgrade_multiplier(owned, milestones) * prestige
         total += production_total(generator.production_base, owned, multipliers)
     return total
 
@@ -91,7 +97,7 @@ def active_production(economy: Economy, state: RunState) -> float:
     clicks = economy.active_click_per_second * prestige
     total_owned = sum(state.owned.values())
     branch = generator_branch_multiplier(economy.branches, state.branch_levels, total_owned)
-    return clicks + generator_output(economy, state) * branch
+    return (clicks + generator_output(economy, state) * branch) * opening_boost(state)
 
 
 def _apply(state: RunState, choice: Choice) -> None:
@@ -219,7 +225,7 @@ def _generator_horizon_choices(
         ratio = return_on_cost(
             generator,
             owned,
-            economy.milestones,
+            _milestones(economy, state),
             prestige,
             horizon_seconds=horizon_seconds,
         )
@@ -283,6 +289,62 @@ def rank_choices(economy: Economy, state: RunState, policy: str) -> list[Choice]
         )
         ranked.append(Choice(branch.generator_id, branch.cost, change, kind="branch"))
     return sorted(ranked, key=lambda option: (option.roi, -option.cost), reverse=True)
+
+
+def _relic_currency_change(economy: Economy, state: RunState, relic: Relic) -> float:
+    """Currency the relic adds over the horizon. Session-start effects stay at 0.
+
+    A relic bought mid-run does not replay the session start. The prestige
+    exchange pays on the next reset, which this horizon does not reach.
+    """
+    if relic.extra_milestone is None:
+        return 0.0
+    horizon = economy.simulation.roi_horizon_minutes * 60.0
+    produced, elapsed, _ = play_horizon(economy, state, horizon, None)
+    alt = state.copy()
+    alt.relic_levels[relic.id] = alt.relic_levels.get(relic.id, 0) + 1
+    gained, alt_elapsed, _ = play_horizon(economy, alt, horizon, None)
+    shared = min(elapsed, alt_elapsed)
+    if shared <= 0:
+        return 0.0
+    if elapsed > shared + 1e-6:
+        produced, _, _ = play_horizon(economy, state, shared, None)
+    if alt_elapsed > shared + 1e-6:
+        gained, _, _ = play_horizon(economy, alt, shared, None)
+    return gained - produced
+
+
+def spend_insight(economy: Economy, state: RunState) -> list[Choice]:
+    """Buy insight options whose horizon production change is positive.
+
+    Insight is not generator currency, so these purchases are not ranked
+    against generators. The exchange is skipped: its points are not in
+    this run's multiplier.
+    """
+    bought: list[Choice] = []
+    offered = len(economy.relics.relics)
+    for _ in range(offered):
+        affordable = [
+            relic
+            for relic in economy.relics.relics
+            if state.relic_levels.get(relic.id, 0) < relic.max_level
+            and state.insight >= relic.insight_cost
+        ]
+        if not affordable:
+            break
+        scored: list[Choice] = []
+        for relic in affordable:
+            change = _relic_currency_change(economy, state, relic)
+            if change <= 0:
+                continue
+            scored.append(Choice(relic.id, float(relic.insight_cost), change, kind="relic"))
+        if not scored:
+            break
+        choice = max(scored, key=lambda option: (option.roi, -option.cost))
+        state.insight -= int(choice.cost)
+        state.relic_levels[choice.generator_id] = state.relic_levels.get(choice.generator_id, 0) + 1
+        bought.append(choice)
+    return bought
 
 
 def choose(economy: Economy, state: RunState, policy: str, rng: random.Random | None = None) -> Choice | None:

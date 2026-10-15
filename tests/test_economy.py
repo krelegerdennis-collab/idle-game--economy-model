@@ -6,6 +6,7 @@ case proves the checker fails closed when the curve is broken.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -30,11 +31,12 @@ from model.load import ROOT, load_economy, parse_economy
 from model.monetization import monetization_gate
 from model.offline import offline_earnings
 from model.prestige import apply_prestige, prestige_multiplier, prestige_points, prestige_reset
+from model.relics import begin_session, effective_offline_rate
 from model.retention import project_retention
 from sim.compare_runs import load_other, verdict
 from sim.export_unity import build_unity_payload, spreadsheet_frame, write_exports
-from sim.policies import choose
-from sim.run_simulation import build_report, initial_state, main as run_main, simulate_run
+from sim.policies import choose, generator_output, spend_insight
+from sim.run_simulation import build_report, initial_state, main as run_main, production_rate, simulate_run
 
 DATA = ROOT / "data"
 
@@ -266,6 +268,11 @@ def test_shipped_model_meets_retention_constraints():
     assert report["monetization_gate"]["active"] is True
     assert report["free_path"] == "decline_offer"
     assert report["constraints"]["ok"] is True
+    assert report["insight_balance"] == 5
+    assert report["relic_levels"] == {}
+    assert report["pending_prestige_points"] == 0
+    assert report["insight_purchases"] == []
+    assert report["effective_offline_rate"] == pytest.approx(0.5)
     names = [event["name"] for event in report["events"]]
     assert "session_begin" in names
     assert "upgrade_purchase" in names
@@ -364,6 +371,18 @@ def test_unity_export_matches_data(tmp_path: Path):
     assert json.loads(unity_path.read_text(encoding="utf-8")) == payload
     committed = json.loads((ROOT / "exports" / "unity" / "economy_config.json").read_text(encoding="utf-8"))
     assert committed == payload
+
+
+def test_frozen_baseline_file_is_unchanged():
+    """The single-purchase curve is frozen. Relics must not rewrite this file."""
+    raw = (ROOT / "exports" / "runs" / "baseline.json").read_bytes()
+    digest = hashlib.sha256(raw).hexdigest()
+    assert digest == "4daf0d19cca05156711dd8c103538a72b4d2e9ddb38d890ff6f7997af5630617"
+    saved = json.loads(raw)
+    assert saved["contract_take_rate"] == pytest.approx(12 / 21)
+    assert saved["prestige_wall_minutes"] == pytest.approx(97.192637, abs=1e-4)
+    assert saved["retention"]["d30"] == pytest.approx(0.08)
+    assert saved["points_gained"] == 1
 
 
 def test_baseline_report_matches_current_model():
@@ -494,3 +513,59 @@ def test_parse_economy_rejects_out_of_order_tiers():
     files["generators.json"]["generators"][0]["tier"] = 2
     with pytest.raises(ValueError, match="tiers"):
         parse_economy(files, DATA)
+
+
+def test_relics_do_not_add_prestige_points_and_the_exchange_waits_for_reset():
+    economy = load_economy()
+    state = initial_state(economy)
+    state.relic_levels = {relic.id: 1 for relic in economy.relics.relics}
+    state.insight = 4
+    state.pending_prestige_points = 1
+    assert prestige_multiplier(state.prestige_points, economy.prestige.point_value) == pytest.approx(1)
+    reset, result = apply_prestige(state, [item.id for item in economy.generators], economy.prestige)
+    assert result["points_gained"] == 1
+    assert reset.prestige_points == 1
+    assert reset.pending_prestige_points == 0
+    assert reset.relic_levels == state.relic_levels
+    assert reset.insight == 4
+    assert reset.claimed_insight_sources == set()
+    assert prestige_multiplier(reset.prestige_points, economy.prestige.point_value) == pytest.approx(1.6)
+
+
+def test_offline_relic_cannot_push_the_rate_above_the_cap():
+    economy = load_economy()
+    levels = {"offline_ledger": 1}
+    assert effective_offline_rate(economy.offline.offline_rate, economy.relics.relics, levels) == pytest.approx(0.5)
+
+
+def test_session_relics_apply_only_at_the_start_of_a_run():
+    economy = load_economy()
+    state = initial_state(economy)
+    state.relic_levels = {"return_flare": 1, "workshop_key": 1}
+    begin_session(economy.relics, state, roll=0.0)
+    assert state.owned["generator_1"] == 1
+    assert state.session_boost_multiplier == pytest.approx(1.5)
+    assert state.session_boost_until == pytest.approx(120)
+    early = production_rate(economy, state)
+    state.t = 120
+    assert production_rate(economy, state) == pytest.approx(early / 1.5)
+
+
+def test_horizon_buys_the_extra_slot_only_once_its_milestone_is_already_active():
+    """The shipped wall never reaches 75 copies, so this purchase stays closed."""
+    economy = load_economy()
+    early = initial_state(economy)
+    early.insight = 5
+    early.owned["generator_1"] = 10
+    assert spend_insight(economy, early) == []
+    ready = initial_state(economy)
+    ready.insight = 2
+    ready.owned["generator_1"] = 75
+    bought = spend_insight(economy, ready)
+    assert [choice.generator_id for choice in bought] == ["fifth_slot"]
+    plain = initial_state(economy)
+    plain.owned["generator_1"] = 75
+    boosted = plain.copy()
+    boosted.relic_levels["fifth_slot"] = 1
+    assert generator_output(economy, boosted) == pytest.approx(generator_output(economy, plain) * 2)
+    assert prestige_multiplier(boosted.prestige_points, economy.prestige.point_value) == pytest.approx(1)

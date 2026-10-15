@@ -10,6 +10,7 @@ from model.generators import Branch, CommitThresholdFormula, Generator, Mileston
 from model.monetization import MonetizationConfig
 from model.offline import OfflineConfig
 from model.prestige import PrestigeConfig
+from model.relics import InsightSource, PrestigeExchange, Relic, RelicConfig
 from model.retention import RetentionTargets
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,6 +23,7 @@ DATA_FILES = (
     "simulation.json",
     "retention_targets.json",
     "analytics.json",
+    "relics.json",
 )
 
 
@@ -54,6 +56,7 @@ class Economy:
     simulation: SimulationConfig
     retention: RetentionTargets
     analytics_events: tuple[dict[str, object], ...]
+    relics: RelicConfig
     data_dir: Path
 
 
@@ -249,6 +252,8 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
         projection=projection,
     )
 
+    relics = _parse_relics(files.get("relics.json"), generator_ids)
+
     events = tuple(analytics_file["events"])
     names = [str(event["name"]) for event in events]
     required = {"session_begin", "upgrade_purchase", "prestige_trigger"}
@@ -269,7 +274,94 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
         simulation=simulation,
         retention=retention,
         analytics_events=events,
+        relics=relics,
         data_dir=data_dir,
+    )
+
+
+def _parse_relics(payload: dict | None, generator_ids: set[str]) -> RelicConfig:
+    if not payload:
+        return RelicConfig("insight", (), None, ())
+    sources: list[InsightSource] = []
+    for raw in payload.get("sources", []):
+        kind = str(raw["kind"])
+        if kind not in {"total_owned_at_least", "prestige_points_at_least"}:
+            raise ValueError(f"unknown insight source kind: {kind}")
+        source = InsightSource(
+            id=str(raw["id"]),
+            kind=kind,
+            threshold=int(raw["threshold"]),
+            insight=int(raw["insight"]),
+        )
+        if source.threshold < 1 or source.insight < 1:
+            raise ValueError(f"{source.id} threshold and insight must be >= 1")
+        sources.append(source)
+    if len({item.id for item in sources}) != len(sources):
+        raise ValueError("insight source ids must be unique")
+
+    exchange: PrestigeExchange | None = None
+    raw_exchange = payload.get("prestige_exchange")
+    if raw_exchange is not None:
+        applies = str(raw_exchange["applies"])
+        if applies != "next_reset":
+            raise ValueError("prestige exchange applies must be next_reset")
+        exchange = PrestigeExchange(
+            id=str(raw_exchange["id"]),
+            insight_cost=int(raw_exchange["insight_cost"]),
+            bonus_points=int(raw_exchange["bonus_points"]),
+            applies=applies,
+        )
+        if exchange.insight_cost < 1 or exchange.bonus_points < 1:
+            raise ValueError(f"{exchange.id} insight_cost and bonus_points must be >= 1")
+
+    relics: list[Relic] = []
+    for raw in payload.get("relics", []):
+        milestone_raw = raw.get("extra_milestone")
+        milestone = None
+        if milestone_raw is not None:
+            milestone = Milestone(
+                owned_at_least=int(milestone_raw["owned_at_least"]),
+                production_multiplier=float(milestone_raw["production_multiplier"]),
+            )
+            if milestone.owned_at_least < 1 or milestone.production_multiplier <= 0:
+                raise ValueError(f"{raw.get('id', 'relic')} extra milestone must raise production")
+        chance = float(raw.get("session_start_free_generator_chance", 0))
+        free_generator_id = raw.get("free_generator_id")
+        free_id = None if free_generator_id is None else str(free_generator_id)
+        relic = Relic(
+            id=str(raw["id"]),
+            insight_cost=int(raw["insight_cost"]),
+            max_level=int(raw["max_level"]),
+            offline_rate_add=float(raw.get("offline_rate_add", 0)),
+            session_start_free_generator_chance=chance,
+            free_generator_id=free_id,
+            extra_milestone=milestone,
+            session_open_boost_multiplier=float(raw.get("session_open_boost_multiplier", 1)),
+            session_open_boost_seconds=float(raw.get("session_open_boost_seconds", 0)),
+        )
+        if relic.insight_cost < 1 or relic.max_level < 1:
+            raise ValueError(f"{relic.id} insight_cost and max_level must be >= 1")
+        if relic.offline_rate_add < 0:
+            raise ValueError(f"{relic.id} offline_rate_add must be >= 0")
+        if not 0 <= relic.session_start_free_generator_chance <= 1:
+            raise ValueError(f"{relic.id} session_start_free_generator_chance must be between 0 and 1")
+        if relic.session_start_free_generator_chance > 0 and free_id not in generator_ids:
+            raise ValueError(f"{relic.id} free_generator_id must name a generator")
+        if relic.session_open_boost_seconds < 0 or relic.session_open_boost_multiplier <= 0:
+            raise ValueError(f"{relic.id} session boost must be a positive multiplier over a non-negative window")
+        relics.append(relic)
+    ids = [item.id for item in relics]
+    if len(set(ids)) != len(ids):
+        raise ValueError("relic ids must be unique")
+    if exchange is not None and exchange.id in ids:
+        raise ValueError("prestige exchange id must not reuse a relic id")
+    if set(ids).intersection(generator_ids):
+        raise ValueError("relic ids must not reuse a generator id")
+    return RelicConfig(
+        currency_id=str(payload.get("currency_id", "insight")),
+        sources=tuple(sources),
+        prestige_exchange=exchange,
+        relics=tuple(relics),
     )
 
 
