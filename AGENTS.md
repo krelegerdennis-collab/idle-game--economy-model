@@ -95,3 +95,39 @@ Retention percentages printed by the simulator are a design-time projection
 from those signals. They are not measured cohort retention. If a proposed
 change fails a constraint, stop. Do not tune monetization to force the
 numbers back into range.
+
+## Playtest
+
+The simulation phase is finished. Do not retune `data/` and do not
+regenerate `exports/runs/baseline.json` to chase a cohort.
+
+`unity/Playtest/` is a Unity 2022 project. Open that folder and load
+`Assets/Playtest.unity`. The scene has a camera and one behaviour. Counters
+and buttons are built at runtime from
+`Assets/StreamingAssets/economy_config.json`. That file must stay
+byte-identical to `exports/unity/economy_config.json`. There is no art,
+narrative, or menu, and no analytics SDK.
+
+The client reads the single-purchase curve in the export. A branch with a
+`structure` field stops the client. The prestige button appears when a
+reset would grant `minPointsToPrestige`. `stallSeconds` stays in the
+export and is not a second gate on the button. The contract button appears
+while `offer_is_open` is true. Leaving the session, or letting that offer
+close, writes `contract_declined`. There is no decline button.
+
+`noisy_seed` is not in the export, so the session-start roll is keyed by
+the install id. It will not reproduce the simulation seed. The export also
+has no offline-rate cap separate from `offlineRate`; relic adds do not
+push the client above that published rate. The prestige exchange is in the
+export and is not a relic, so this screen does not sell it.
+
+Logs append to `playtest_log.jsonl` under `Application.persistentDataPath`.
+On pause and quit, Android copies that file to
+`/sdcard/Android/data/<package>/files/playtest_log.jsonl`. iOS keeps it in
+`Application.persistentDataPath`.
+
+`python -m sim.analyze_playtest <file-or-dir>` reports purchases, refusals,
+prestige, relics, unlock order, and D1/D7/D30. A day rate is null when the
+logs do not cover that many days. `python -m sim.compare_playtest_to_sim
+--logs <file-or-dir>` prints the numeric difference against the frozen
+baseline. With no logs, the playtest side stays blank.

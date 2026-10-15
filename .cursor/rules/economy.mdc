@@ -18,3 +18,5 @@ alwaysApply: true
   are a second reward axis. They do not add prestige points. The exchange
   into prestige points applies on the next reset only.
   `exports/runs/baseline.json` is frozen; do not regenerate it.
+  The playtest in `unity/Playtest` reads `exports/unity/economy_config.json`.
+  Do not retune `data/` to make that client or a later cohort match the sim.
