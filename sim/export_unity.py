@@ -60,7 +60,10 @@ def build_unity_payload(economy: Economy) -> dict[str, object]:
                 "activeProductionMultiplier": branch.active_production_multiplier,
                 "peakProductionMultiplier": branch.peak_production_multiplier,
                 "peakTotalOwnedAtLeast": branch.peak_total_owned_at_least,
-                "commitBeforeTotalOwned": branch.commit_before_total_owned,
+                "commitThresholdFormula": {
+                    "base": branch.commit_threshold_formula.base,
+                    "ownedDivisor": branch.commit_threshold_formula.owned_divisor,
+                },
             }
             for branch in economy.branches
         ],

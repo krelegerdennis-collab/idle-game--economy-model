@@ -20,6 +20,7 @@ import sys
 from pathlib import Path
 
 from model.generators import (
+    commit_threshold,
     generator_branch_multiplier,
     production_is_subexponential,
     production_total,
@@ -315,7 +316,7 @@ def _contract_choice(economy: Economy, result: dict[str, object]) -> dict[str, o
             "branch_id": branch_id,
             "active_minutes": round(float(bought["active_seconds"]) / 60.0, 6),
             "total_owned": total_owned,
-            "commit_before_total_owned": branch.commit_before_total_owned,
+            "commit_threshold": commit_threshold(branch.commit_threshold_formula, total_owned),
             "peak_total_owned_at_least": branch.peak_total_owned_at_least,
             "copies_until_peak": branch.peak_total_owned_at_least - total_owned,
         }
@@ -642,11 +643,13 @@ def _format_contracts(report: dict[str, object]) -> str:
     minutes = [float(item["active_minutes"]) for item in bought]
     peak = bought[0].get("peak_total_owned_at_least")
     short = [int(item["copies_until_peak"]) for item in bought]
+    span = max(minutes) - min(minutes)
     return (
         f"{rate:.0%} of {len(choices)} ROI runs, "
         f"at total owned {min(owned)}–{max(owned)} "
         f"({min(short)}–{max(short)} copies before the peak at {peak}), "
-        f"t={min(minutes):.2f}–{max(minutes):.2f} min"
+        f"t={min(minutes):.2f}–{max(minutes):.2f} min "
+        f"(window {span:.2f} min)"
     )
 
 

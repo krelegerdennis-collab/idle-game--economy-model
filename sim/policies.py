@@ -18,6 +18,7 @@ from model.generators import (
     cost_next,
     generator_branch_multiplier,
     marginal_production,
+    offer_is_open,
     production_total,
     return_on_cost,
     upgrade_multiplier,
@@ -191,7 +192,7 @@ def _available_branches(economy: Economy, state: RunState) -> list[Choice]:
     available: list[Choice] = []
     for branch in economy.branches:
         level = state.branch_levels.get(branch.id, 0)
-        if level >= branch.max_level or total_owned >= branch.commit_before_total_owned:
+        if level >= branch.max_level or not offer_is_open(branch, total_owned):
             continue
         cost = cost_next(branch.cost_base, branch.growth_rate, level)
         if not math.isfinite(cost) or cost <= 0:

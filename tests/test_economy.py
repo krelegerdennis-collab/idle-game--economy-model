@@ -15,9 +15,11 @@ import pytest
 from model.generators import (
     Generator,
     Milestone,
+    commit_threshold,
     cost_curve,
     cost_next,
     marginal_production,
+    offer_is_open,
     production_is_subexponential,
     production_total,
     return_on_cost,
@@ -270,19 +272,35 @@ def test_shipped_model_meets_retention_constraints():
     assert "prestige_trigger" in names
 
 
-def test_roi_buys_the_contract_only_near_the_commit_cap():
-    """The dip is immediate. Horizon ROI buys only once the peak fits in the window."""
+def test_commit_threshold_scales_and_still_closes_before_the_peak():
+    """commit_threshold = base + floor(total_owned / owned_divisor)."""
+    economy = load_economy()
+    branch = economy.branches[0]
+    formula = branch.commit_threshold_formula
+    assert formula.base == 50
+    assert formula.owned_divisor == 10
+    assert commit_threshold(formula, 0) == 50
+    assert commit_threshold(formula, 54) == 55
+    assert commit_threshold(formula, 60) == 56
+    assert offer_is_open(branch, 54)
+    assert offer_is_open(branch, 55) is False
+    assert offer_is_open(branch, branch.peak_total_owned_at_least) is False
+
+
+def test_roi_buys_the_contract_only_near_the_scaling_cap():
+    """The dip is immediate. Horizon ROI buys on the last owned count the formula still allows."""
     economy = load_economy()
     branch = economy.branches[0]
     assert branch.active_production_multiplier < 1
     assert branch.peak_net_multiplier > 1
-    assert branch.commit_before_total_owned <= branch.peak_total_owned_at_least
     with pytest.raises(ValueError, match="peak"):
         choose(economy, initial_state(economy), "peak")
     result = simulate_run(economy, policy="roi")
     bought = [purchase for purchase in result["purchases"] if purchase["kind"] == "branch"]
     assert len(bought) == 1
-    assert bought[0]["total_owned"] == branch.commit_before_total_owned - 1
+    owned = int(bought[0]["total_owned"])
+    assert offer_is_open(branch, owned)
+    assert offer_is_open(branch, owned + 1) is False
     assert result["state"].branch_levels["peak_contract"] == 1
     assert 90 <= float(result["wall"]["t_minutes"]) <= 120
 
@@ -400,7 +418,7 @@ def _write_branch_curve(directory: Path, *, peak_at: int, commit: int, peak_mult
             "active_production_multiplier": 0.8,
             "peak_production_multiplier": peak_multiplier,
             "peak_total_owned_at_least": peak_at,
-            "commit_before_total_owned": commit,
+            "commit_threshold_formula": {"base": commit, "owned_divisor": 10},
         }
     ]
     (directory / "upgrades.json").write_text(json.dumps(upgrades), encoding="utf-8")
@@ -433,6 +451,27 @@ def test_loader_rejects_a_second_purchase_objective(tmp_path: Path):
     directory = _copy_data(tmp_path, **{"simulation.json": {"population_weights": {"roi": 1, "peak": 1}}})
     with pytest.raises(ValueError, match="ROI"):
         load_economy(directory)
+
+
+def test_loader_rejects_a_fixed_commit_cap(tmp_path: Path):
+    directory = _copy_data(tmp_path)
+    upgrades = json.loads((directory / "upgrades.json").read_text(encoding="utf-8"))
+    upgrades["branches"][0]["commit_before_total_owned"] = 55
+    (directory / "upgrades.json").write_text(json.dumps(upgrades), encoding="utf-8")
+    with pytest.raises(ValueError, match="commit_threshold_formula"):
+        load_economy(directory)
+
+
+def test_return_on_cost_is_cumulative_production_over_the_horizon():
+    """The numerator is marginal production integrated over the window, not the instant rate."""
+    generator = Generator("generator_1", 1, 10, 1.15, 4)
+    milestones = (Milestone(10, 2),)
+    horizon = 600
+    marginal = marginal_production(generator, 3, milestones, 1.5)
+    ratio = return_on_cost(generator, 3, milestones, 1.5, horizon_seconds=horizon)
+    cost = cost_next(generator.cost_base, generator.growth_rate, 3)
+    assert ratio == pytest.approx(marginal * horizon / cost)
+    assert ratio != pytest.approx(marginal / cost)
 
 
 def test_loader_rejects_a_nonpositive_roi_horizon(tmp_path: Path):

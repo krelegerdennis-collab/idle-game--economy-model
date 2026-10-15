@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from model.generators import Branch, Generator, Milestone
+from model.generators import Branch, CommitThresholdFormula, Generator, Milestone
 from model.monetization import MonetizationConfig
 from model.offline import OfflineConfig
 from model.prestige import PrestigeConfig
@@ -117,6 +117,18 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
 
     branches: list[Branch] = []
     for raw in upgrades_file.get("branches", []):
+        if "commit_before_total_owned" in raw:
+            raise ValueError(
+                f"{raw.get('id', 'branch')} commit_before_total_owned is fixed; "
+                "use commit_threshold_formula"
+            )
+        formula_raw = raw["commit_threshold_formula"]
+        if not isinstance(formula_raw, dict):
+            raise ValueError(f"{raw.get('id', 'branch')} commit_threshold_formula must be an object")
+        formula = CommitThresholdFormula(
+            base=int(formula_raw["base"]),
+            owned_divisor=int(formula_raw["owned_divisor"]),
+        )
         branch = Branch(
             id=str(raw["id"]),
             cost_base=float(raw["cost_base"]),
@@ -125,7 +137,7 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
             active_production_multiplier=float(raw["active_production_multiplier"]),
             peak_production_multiplier=float(raw["peak_production_multiplier"]),
             peak_total_owned_at_least=int(raw["peak_total_owned_at_least"]),
-            commit_before_total_owned=int(raw["commit_before_total_owned"]),
+            commit_threshold_formula=formula,
         )
         if branch.growth_rate <= 1 or branch.cost_base <= 0:
             raise ValueError(f"{branch.id} cost must grow exponentially from a positive base")
@@ -135,13 +147,10 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
             raise ValueError(f"{branch.id} active_production_multiplier must be between 0 and 1")
         if branch.peak_net_multiplier <= 1:
             raise ValueError(f"{branch.id} peak net multiplier must exceed 1, otherwise it is not a peak")
-        if branch.peak_total_owned_at_least < 1 or branch.commit_before_total_owned < 1:
-            raise ValueError(f"{branch.id} owned thresholds must be >= 1")
-        if branch.commit_before_total_owned > branch.peak_total_owned_at_least:
-            raise ValueError(
-                f"{branch.id} commit window must close at or before the peak, "
-                "so the purchase is only offered while it still slows active production"
-            )
+        if branch.peak_total_owned_at_least < 1:
+            raise ValueError(f"{branch.id} peak_total_owned_at_least must be >= 1")
+        if formula.base < 1 or formula.owned_divisor < 1:
+            raise ValueError(f"{branch.id} commit_threshold_formula base and owned_divisor must be >= 1")
         branches.append(branch)
     generator_ids = {item.id for item in generators}
     branch_ids = {item.id for item in branches}
