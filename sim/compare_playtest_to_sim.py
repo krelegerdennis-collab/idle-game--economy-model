@@ -87,6 +87,44 @@ def compare_reports(playtest: dict[str, object], baseline: dict[str, object]) ->
     return report
 
 
+def webgl_smoke(playtest: dict[str, object], baseline: dict[str, object]) -> dict[str, object]:
+    """Take rate, contract window, and declined ratio. Retention is omitted."""
+    device = compare_reports(playtest, baseline)
+    return {
+        "medium": "webgl",
+        "retention_comparable": False,
+        "take_rate": device["take_rate"],
+        "contract_window_minutes": device["contract_window_minutes"],
+        "contract_declined_ratio": playtest.get("contract_declined_ratio"),
+        "playtest_players": playtest.get("session_players", 0),
+    }
+
+
+def format_webgl(report: dict[str, object]) -> str:
+    """Smoke-test lines. D1/D7/D30 are not placed next to the baseline."""
+    take = report["take_rate"]
+    window = report["contract_window_minutes"]
+    assert isinstance(take, dict)
+    assert isinstance(window, dict)
+    return "\n".join(
+        [
+            f"Take rate: simulatie {_pct(take['simulation'])} vs. playtest {_pct(take['playtest'])}",
+            (
+                "Contract-venster: simulatie "
+                f"{_minutes(window['simulation'])} min vs. playtest mediaan {_minutes(window['playtest'])} min"
+            ),
+            f"contract_declined-ratio: {_plain_ratio(report.get('contract_declined_ratio'))}",
+            "D1/D7/D30: niet valide voor WebGL",
+        ]
+    )
+
+
+def _plain_ratio(value: object) -> str:
+    if value is None:
+        return "—"
+    return _num(value)
+
+
 def format_comparison(report: dict[str, object]) -> str:
     """The four lines the playtest phase compares. A missing cohort stays blank."""
     take = report["take_rate"]
@@ -142,17 +180,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--baseline", type=Path, default=DEFAULT_BASELINE)
     parser.add_argument("--logs", type=Path, default=None)
     parser.add_argument("--json", action="store_true")
+    parser.add_argument(
+        "--webgl",
+        action="store_true",
+        help="Smoke test: take rate, contract window, declined ratio. No D1/D30.",
+    )
     args = parser.parse_args(argv)
     baseline = json.loads(args.baseline.read_text(encoding="utf-8"))
     if args.logs is None or not args.logs.exists():
         playtest = empty_playtest()
     else:
         playtest = analyze_path(args.logs)
-    report = compare_reports(playtest, baseline)
-    if args.json:
-        print(json.dumps(report, indent=2, ensure_ascii=False))
+    webgl = args.webgl or playtest.get("medium") in {"webgl", "mixed"}
+    if webgl:
+        report = webgl_smoke(playtest, baseline)
+        print(json.dumps(report, indent=2, ensure_ascii=False) if args.json else format_webgl(report))
     else:
-        print(format_comparison(report))
+        report = compare_reports(playtest, baseline)
+        print(json.dumps(report, indent=2, ensure_ascii=False) if args.json else format_comparison(report))
     return 0
 
 

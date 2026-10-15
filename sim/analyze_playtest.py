@@ -133,6 +133,9 @@ def analyze_events(grouped: dict[str, list[dict]], *, skipped_lines: int = 0) ->
     purchase_times: list[float] = []
     stamped: list[datetime] = []
     session_players = 0
+    shown_players = 0
+    declined_unbought = 0
+    media: set[str] = set()
 
     for player_id, events in grouped.items():
         ordered = sorted(events, key=lambda item: str(item.get("timestamp", "")))
@@ -142,6 +145,14 @@ def analyze_events(grouped: dict[str, list[dict]], *, skipped_lines: int = 0) ->
         shown = [item for item in ordered if item.get("event") == "contract_offer_shown"]
         bought = [item for item in ordered if item.get("event") == "contract_purchase"]
         declined = [item for item in ordered if item.get("event") == "contract_declined"]
+        if shown:
+            shown_players += 1
+            if not bought and declined:
+                declined_unbought += 1
+        for item in ordered:
+            medium = item.get("medium")
+            if medium:
+                media.add(str(medium))
         if bought:
             for item in bought:
                 active = _minutes_from_seconds(_seconds(item, "active_playtime"))
@@ -219,6 +230,12 @@ def analyze_events(grouped: dict[str, list[dict]], *, skipped_lines: int = 0) ->
     observation_end = max(stamped) if stamped else None
     buyers = len({moment["player_id"] for moment in purchase_moments})
     take_rate = None if session_players == 0 else buyers / session_players
+    if not media:
+        report_medium = "device"
+    elif media == {"webgl"}:
+        report_medium = "webgl"
+    else:
+        report_medium = "mixed"
     return {
         "player_count": len(grouped),
         "session_players": session_players,
@@ -237,6 +254,10 @@ def analyze_events(grouped: dict[str, list[dict]], *, skipped_lines: int = 0) ->
             "player_ids": not_shown,
         },
         "take_rate": take_rate,
+        "contract_declined_ratio": None if shown_players == 0 else declined_unbought / shown_players,
+        "contract_declined_players": declined_unbought,
+        "contract_shown_players": shown_players,
+        "medium": report_medium,
         "contract_purchase_time_median_minutes": _median(purchase_times),
         "contract_purchase_time_width_minutes": _width(purchase_times),
         "prestige": {

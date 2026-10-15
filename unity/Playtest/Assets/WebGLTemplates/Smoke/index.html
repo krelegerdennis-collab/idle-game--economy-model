@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{{ PRODUCT_NAME }}}</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #1a1a1e; }
+    #unity-canvas { width: 100%; height: 100%; display: block; background: #1a1a1e; }
+  </style>
+</head>
+<body>
+  <canvas id="unity-canvas"></canvas>
+  <script src="{{{ LOADER_FILENAME }}}"></script>
+  <script>
+    createUnityInstance(document.querySelector("#unity-canvas"), {
+      dataUrl: "{{{ DATA_FILENAME }}}",
+      frameworkUrl: "{{{ FRAMEWORK_FILENAME }}}",
+      codeUrl: "{{{ CODE_FILENAME }}}",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "{{{ COMPANY_NAME }}}",
+      productName: "{{{ PRODUCT_NAME }}}",
+      productVersion: "{{{ PRODUCT_VERSION }}}"
+    }).catch(function (message) {
+      console.error(message);
+    });
+  </script>
+</body>
+</html>

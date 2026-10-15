@@ -11,15 +11,25 @@ namespace Playtest
     public sealed class AnalyticsBridge : ScriptableObject
     {
         public const string LogFileName = "playtest_log.jsonl";
+        public const string PrefsKey = "playtest_log_jsonl";
 
+        readonly StringBuilder transcript = new StringBuilder();
         StreamWriter writer;
         string playerId = "";
 
         public string LogPath { get; private set; }
+        public string Transcript => transcript.ToString();
 
         public void Open(string path)
         {
             LogPath = path;
+            transcript.Length = 0;
+            if (Application.platform == RuntimePlatform.WebGLPlayer)
+            {
+                if (PlayerPrefs.HasKey(PrefsKey))
+                    transcript.Append(PlayerPrefs.GetString(PrefsKey));
+                return;
+            }
             string directory = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(directory))
                 Directory.CreateDirectory(directory);
@@ -34,10 +44,13 @@ namespace Playtest
 
         public void SessionBegin(double cumulativePlaytime)
         {
-            Write("session_begin", new Dictionary<string, object>
+            Dictionary<string, object> fields = new Dictionary<string, object>
             {
                 { "cumulative_playtime", cumulativePlaytime },
-            });
+            };
+            if (Application.platform == RuntimePlatform.WebGLPlayer)
+                fields["medium"] = "webgl";
+            Write("session_begin", fields);
         }
 
         public void SessionEnd(double sessionDuration, double currencyAtEnd)
@@ -128,16 +141,28 @@ namespace Playtest
         {
             if (writer != null)
                 writer.Flush();
+            if (Application.platform != RuntimePlatform.WebGLPlayer)
+                return;
+            try
+            {
+                PlayerPrefs.SetString(PrefsKey, transcript.ToString());
+                PlayerPrefs.Save();
+            }
+            catch (Exception)
+            {
+                Debug.LogWarning("playtest log bleef in het geheugen; PlayerPrefs weigerde de tekst.");
+            }
         }
 
         void Write(string eventName, Dictionary<string, object> fields)
         {
-            if (writer == null)
-                return;
             fields["event"] = eventName;
             fields["timestamp"] = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
             fields["player_id"] = playerId;
-            writer.WriteLine(Encode(fields));
+            string line = Encode(fields);
+            transcript.Append(line).Append('\n');
+            if (writer != null)
+                writer.WriteLine(line);
         }
 
         static string Encode(Dictionary<string, object> fields)
@@ -203,9 +228,9 @@ namespace Playtest
 
         void OnDisable()
         {
+            Flush();
             if (writer == null)
                 return;
-            writer.Flush();
             writer.Dispose();
             writer = null;
         }

@@ -5,8 +5,9 @@ namespace Playtest
 {
     /// <summary>
     /// Copies the local JSONL log when the app pauses or quits.
-    /// Android: /sdcard/Android/data/&lt;package&gt;/files/playtest_log.jsonl
-    /// iOS: Application.persistentDataPath. Other players use that same folder.
+    /// WebGL offers it as a browser download. Android copies it to
+    /// /sdcard/Android/data/&lt;package&gt;/files/playtest_log.jsonl.
+    /// iOS and other players keep it in Application.persistentDataPath.
     /// </summary>
     public sealed class ExportLogs : MonoBehaviour
     {
@@ -28,9 +29,16 @@ namespace Playtest
 
         public void ExportNow()
         {
-            if (analytics == null || string.IsNullOrEmpty(analytics.LogPath))
+            if (analytics == null)
                 return;
             analytics.Flush();
+            if (Application.platform == RuntimePlatform.WebGLPlayer)
+            {
+                WebGLDownload.Save(FileName, analytics.Transcript);
+                return;
+            }
+            if (string.IsNullOrEmpty(analytics.LogPath))
+                return;
             string source = analytics.LogPath;
             if (!File.Exists(source))
                 return;
