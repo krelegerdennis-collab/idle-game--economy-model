@@ -1,0 +1,12 @@
+---
+description: Economy simulation rules
+alwaysApply: true
+---
+# Economy Rules
+- All cost formulas use exponential growth: cost_base × growth^owned.
+- Production scaling must be sub-exponential relative to cost scaling,
+  or the economy breaks (infinite money glitch).
+- Prestige multipliers reset on prestige but compound across runs.
+- Offline earning formula: production × time_away × offline_rate (≤ 0.5).
+- Monetization gates sit at the first prestige wall and every 3rd prestige.
+- Never optimize for player spending. Optimize for retention, then monetize.

@@ -1,0 +1,16 @@
+{
+  "events": [
+    {
+      "name": "session_begin",
+      "properties": ["session_index", "seconds_since_last", "prestige_count"]
+    },
+    {
+      "name": "upgrade_purchase",
+      "properties": ["generator_id", "owned_after", "cost", "active_seconds"]
+    },
+    {
+      "name": "prestige_trigger",
+      "properties": ["prestige_count", "points_gained", "lifetime_currency", "active_seconds"]
+    }
+  ]
+}

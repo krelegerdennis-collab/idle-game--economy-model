@@ -1,0 +1,50 @@
+{
+  "currency_id": "soft_currency",
+  "starting_currency": 4,
+  "active_click_per_second": 0.0976,
+  "notes": "List order is the authored purchase sequence. The first generator's growth_rate is 1.15. Active clicks are an input during active play, multiplied by the prestige multiplier, and added to generator production. Tier costs and production are tuned so the ROI policy's first 10 minute stall is just after 90 minutes.",
+  "generators": [
+    {
+      "id": "generator_1",
+      "tier": 1,
+      "cost_base": 4,
+      "growth_rate": 1.15,
+      "production_base": 0.117
+    },
+    {
+      "id": "generator_2",
+      "tier": 2,
+      "cost_base": 70,
+      "growth_rate": 1.15,
+      "production_base": 1.074
+    },
+    {
+      "id": "generator_3",
+      "tier": 3,
+      "cost_base": 980,
+      "growth_rate": 1.15,
+      "production_base": 8.78
+    },
+    {
+      "id": "generator_4",
+      "tier": 4,
+      "cost_base": 15680,
+      "growth_rate": 1.15,
+      "production_base": 70.24
+    },
+    {
+      "id": "generator_5",
+      "tier": 5,
+      "cost_base": 300000,
+      "growth_rate": 1.15,
+      "production_base": 163.92
+    },
+    {
+      "id": "generator_6",
+      "tier": 6,
+      "cost_base": 13500000,
+      "growth_rate": 1.15,
+      "production_base": 1229.28
+    }
+  ]
+}

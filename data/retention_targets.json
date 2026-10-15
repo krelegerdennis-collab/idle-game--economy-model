@@ -1,0 +1,27 @@
+{
+  "notes": "Projection coefficients are a design heuristic. They are not live analytics. base_d1/d7/d30 are the rates when every factor is healthy.",
+  "d1_min": 0.35,
+  "d7_min": 0.15,
+  "d30_min": 0.05,
+  "session_cadence_min": 5,
+  "session_cadence_max": 6,
+  "first_prestige_wall_minutes_min": 90,
+  "first_prestige_wall_minutes_target": 90,
+  "first_prestige_wall_minutes_max": 120,
+  "purchase_order_agreement_min": 0.8,
+  "min_tiers_unlocked": 3,
+  "projection": {
+    "base_d1": 0.42,
+    "base_d7": 0.20,
+    "base_d30": 0.08,
+    "wall_in_band_penalty_at_max": 0.15,
+    "short_wall_scale_minutes": 90,
+    "long_wall_scale_minutes": 120,
+    "cadence_penalty_per_checkin": 0.25,
+    "healthy_first_multiplier_min": 1.15,
+    "healthy_first_multiplier_max": 2.0,
+    "reward_low_penalty_width": 0.15,
+    "reward_high_penalty_width": 2.0,
+    "factor_floor": 0.2
+  }
+}

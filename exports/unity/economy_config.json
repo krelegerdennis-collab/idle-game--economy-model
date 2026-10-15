@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "currencyId": "soft_currency",
+  "startingCurrency": 4.0,
+  "activeClickPerSecond": 0.0976,
+  "formulas": {
+    "costNext": "cost_base * growth_rate^owned",
+    "productionTotal": "production_base * owned * multipliers",
+    "prestigeReset": "floor(coeff * (lifetime_currency / divisor)^exponent)",
+    "prestigeMultiplier": "(1 + point_value)^total_points",
+    "offlineEarnings": "production * min(time_away, cap_seconds) * offline_rate"
+  },
+  "generators": [
+    {
+      "id": "generator_1",
+      "tier": 1,
+      "costBase": 4.0,
+      "growthRate": 1.15,
+      "productionBase": 0.117
+    },
+    {
+      "id": "generator_2",
+      "tier": 2,
+      "costBase": 70.0,
+      "growthRate": 1.15,
+      "productionBase": 1.074
+    },
+    {
+      "id": "generator_3",
+      "tier": 3,
+      "costBase": 980.0,
+      "growthRate": 1.15,
+      "productionBase": 8.78
+    },
+    {
+      "id": "generator_4",
+      "tier": 4,
+      "costBase": 15680.0,
+      "growthRate": 1.15,
+      "productionBase": 70.24
+    },
+    {
+      "id": "generator_5",
+      "tier": 5,
+      "costBase": 300000.0,
+      "growthRate": 1.15,
+      "productionBase": 163.92
+    },
+    {
+      "id": "generator_6",
+      "tier": 6,
+      "costBase": 13500000.0,
+      "growthRate": 1.15,
+      "productionBase": 1229.28
+    }
+  ],
+  "upgrades": [
+    {
+      "ownedAtLeast": 10,
+      "productionMultiplier": 2.0
+    },
+    {
+      "ownedAtLeast": 25,
+      "productionMultiplier": 2.0
+    },
+    {
+      "ownedAtLeast": 50,
+      "productionMultiplier": 2.0
+    },
+    {
+      "ownedAtLeast": 100,
+      "productionMultiplier": 2.0
+    }
+  ],
+  "prestige": {
+    "coeff": 1.0,
+    "divisor": 24000000.0,
+    "exponent": 0.5,
+    "pointValue": 0.2,
+    "minPointsToPrestige": 1,
+    "stallSeconds": 600.0
+  },
+  "offline": {
+    "offlineRate": 0.5,
+    "capHours": 3.0,
+    "wakingHours": 16.5
+  },
+  "monetization": {
+    "everyNthPrestige": 3,
+    "optionalBoostMultiplier": 2.0,
+    "optionalBoostSeconds": 600.0,
+    "defaultAction": "decline_offer"
+  },
+  "analyticsEvents": [
+    {
+      "name": "session_begin",
+      "properties": [
+        "session_index",
+        "seconds_since_last",
+        "prestige_count"
+      ]
+    },
+    {
+      "name": "upgrade_purchase",
+      "properties": [
+        "generator_id",
+        "owned_after",
+        "cost",
+        "active_seconds"
+      ]
+    },
+    {
+      "name": "prestige_trigger",
+      "properties": [
+        "prestige_count",
+        "points_gained",
+        "lifetime_currency",
+        "active_seconds"
+      ]
+    }
+  ]
+}

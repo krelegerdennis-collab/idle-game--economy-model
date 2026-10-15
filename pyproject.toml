@@ -1,0 +1,10 @@
+[project]
+name = "idle-economy-sim"
+version = "0.1.0"
+description = "Mathematical economy model for an idle game. Not a game."
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.26", "pandas>=2.2"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
