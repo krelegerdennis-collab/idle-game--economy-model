@@ -42,11 +42,15 @@ class CommitThresholdFormula:
 class Branch:
     """A purchased modifier that competes with buying the next generator.
 
-    `active_production_multiplier` applies as soon as the branch is owned and
-    must be below 1. `peak_production_multiplier` applies only once total
-    generator copies reach `peak_total_owned_at_least`. The offer stays open
-    while total owned is still under `commit_threshold` and under that peak,
-    so the purchase is only available while its immediate effect is a penalty.
+    `structure` is `single` or `parallel`. A single purchase multiplies all
+    generator output. `active_production_multiplier` applies immediately and
+    `peak_production_multiplier` applies once total copies reach
+    `peak_total_owned_at_least`.
+
+    A parallel purchase leaves linear output untouched. It adds an extra
+    stream of `parallel_production_fraction` times current generator output,
+    and the dip and the peak scale only that stream. The offer stays open
+    while total owned is still under `commit_threshold` and under the peak.
     """
 
     id: str
@@ -57,10 +61,23 @@ class Branch:
     peak_production_multiplier: float
     peak_total_owned_at_least: int
     commit_threshold_formula: CommitThresholdFormula
+    structure: str = "single"
+    parallel_production_fraction: float = 0.0
 
     @property
     def peak_net_multiplier(self) -> float:
         return self.active_production_multiplier * self.peak_production_multiplier
+
+    def applied_multiplier(self, level: int, total_owned: int) -> float:
+        """Dip, then dip times peak, for this many owned levels."""
+        if level <= 0:
+            return 1.0
+        if level > self.max_level:
+            raise ValueError(f"{self.id} level {level} is above max_level {self.max_level}")
+        multiplier = self.active_production_multiplier ** level
+        if total_owned >= self.peak_total_owned_at_least:
+            multiplier *= self.peak_production_multiplier ** level
+        return multiplier
 
 
 @dataclass(frozen=True)
@@ -134,16 +151,24 @@ def generator_branch_multiplier(
     levels: dict[str, int],
     total_owned: int,
 ) -> float:
-    """Product of owned branch modifiers. 1 when the player has bought none."""
-    multiplier = 1.0
+    """Scale on generator output. 1 when the player has bought none.
+
+    A single-structure branch multiplies the whole stack. A parallel branch
+    adds its dipped stream on top of an untouched linear stack, so the scale
+    is `1 + fraction × dip_or_peak` for that branch.
+    """
+    linear = 1.0
+    extra = 0.0
     for branch in branches:
         level = levels.get(branch.id, 0)
         if level <= 0:
             continue
-        multiplier *= branch.active_production_multiplier ** level
-        if total_owned >= branch.peak_total_owned_at_least:
-            multiplier *= branch.peak_production_multiplier ** level
-    return multiplier
+        factor = branch.applied_multiplier(level, total_owned)
+        if branch.structure == "parallel":
+            extra += branch.parallel_production_fraction * factor
+        else:
+            linear *= factor
+    return linear + extra
 
 
 def production_total(production_base: float, owned: int, multipliers: float) -> float:
