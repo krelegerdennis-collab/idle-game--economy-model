@@ -1,0 +1,107 @@
+name: WebGL rooktest
+
+on:
+  push:
+    branches:
+      - main
+      - cursor/playtest-instrumentation-cb53
+    paths:
+      - "unity/Playtest/**"
+      - ".github/workflows/webgl-build.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: webgl-pages
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: WebGL
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Unity-licentie
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          missing=0
+          for name in UNITY_LICENSE UNITY_EMAIL UNITY_PASSWORD; do
+            eval "value=\${$name}"
+            if [ -z "$value" ]; then
+              echo "Secret $name ontbreekt."
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Eenmalige activatie staat in AGENTS.md, sectie WebGL-rooktest."
+            exit 1
+          fi
+          echo "Unity-secrets zijn gezet."
+
+      - name: Schijfruimte
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          df -h
+
+      - name: WebGL-build
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: WebGL
+          projectPath: unity/Playtest
+          unityVersion: 2022.3.62f1
+          customImage: unityci/editor:ubuntu-2022.3.62f1-webgl-3
+          buildName: WebGL
+          allowDirtyBuild: true
+
+      - name: Vind index.html
+        id: artifact
+        run: |
+          index=$(find build -name index.html | head -n 1)
+          if [ -z "$index" ]; then
+            echo "Geen index.html in de WebGL-output."
+            find build -maxdepth 4 -type d || true
+            exit 1
+          fi
+          echo "dir=$(dirname "$index")" >> "$GITHUB_OUTPUT"
+          echo "WebGL-output: $(dirname "$index")"
+
+      - name: Publiceer gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ${{ steps.artifact.outputs.dir }}
+          publish_branch: gh-pages
+
+      - name: GitHub Pages inschakelen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          gh api --method POST "repos/${{ github.repository }}/pages" --input - <<'JSON'
+          {"build_type":"legacy","source":{"branch":"gh-pages","path":"/"}}
+          JSON
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "Pages aanmaken gaf exit $status. De branch gh-pages staat er wel. Zet Pages handmatig op branch gh-pages, map / ."
+          fi
+          exit 0
+
+      - name: Rapporteer URL
+        id: pages
+        run: |
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          repo=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
+          url="https://${owner}.github.io/${repo}/"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "GitHub Pages URL: $url"

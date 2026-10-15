@@ -1,8 +1,11 @@
 """Purchase policies used to test whether the curve is legible.
 
-The primary policy buys the copy with the highest marginal production per
-currency. The others are a small population around that behavior. None of
-them spend money; monetization offers are not a policy.
+ROI buys the copy with the highest production change per currency over the
+configured horizon (or until the next prestige, whichever comes first).
+There is no second objective. A branch is ranked by that same ratio: the
+integral of its production change over the window, divided by its cost.
+The inner forecast ranks generators by instantaneous marginal so the
+horizon search does not call itself.
 """
 
 from __future__ import annotations
@@ -15,11 +18,17 @@ from model.generators import (
     cost_next,
     generator_branch_multiplier,
     marginal_production,
+    offer_is_open,
     production_total,
+    return_on_cost,
     upgrade_multiplier,
 )
+from model.relics import Relic, effective_milestones, opening_boost
 from model.load import Economy
-from model.prestige import RunState, prestige_multiplier
+from model.prestige import RunState, prestige_multiplier, prestige_points
+
+_PURCHASE_TOLERANCE = 1e-8
+_POLICIES = {"roi", "roi_noisy", "patient", "cheapest"}
 
 
 @dataclass(frozen=True)
@@ -33,25 +42,24 @@ class Choice:
     def roi(self) -> float:
         if self.cost <= 0 or not math.isfinite(self.cost):
             return 0.0
+        if not math.isfinite(self.marginal):
+            return 0.0
         return self.marginal / self.cost
 
 
-def _choices(economy: Economy, state: RunState, allowed: set[str] | None) -> list[Choice]:
+def _instant_generators(economy: Economy, state: RunState, allowed: set[str] | None) -> list[Choice]:
+    """One more copy, scored by production per second. Not a horizon score."""
     prestige = prestige_multiplier(state.prestige_points, economy.prestige.point_value)
     choices: list[Choice] = []
     for generator in economy.generators:
         if allowed is not None and generator.id not in allowed:
             continue
-        cost = cost_next(generator.cost_base, generator.growth_rate, state.owned[generator.id])
-        if not math.isfinite(cost):
+        owned = state.owned[generator.id]
+        cost = cost_next(generator.cost_base, generator.growth_rate, owned)
+        if not math.isfinite(cost) or cost <= 0:
             continue
-        marginal = marginal_production(
-            generator,
-            state.owned[generator.id],
-            economy.milestones,
-            prestige,
-        )
-        if marginal <= 0:
+        marginal = marginal_production(generator, owned, _milestones(economy, state), prestige)
+        if marginal <= 0 or not math.isfinite(marginal):
             continue
         choices.append(Choice(generator.id, cost, marginal))
     return choices
@@ -67,59 +75,285 @@ def _patient_ids(economy: Economy, state: RunState) -> set[str]:
     return {economy.generators[index].id for index in range(last + 1)}
 
 
+def _milestones(economy: Economy, state: RunState) -> tuple:
+    return effective_milestones(economy.milestones, economy.relics.relics, state.relic_levels)
+
+
 def generator_output(economy: Economy, state: RunState) -> float:
     """Generator production before the branch modifier. Clicks are not included."""
     prestige = prestige_multiplier(state.prestige_points, economy.prestige.point_value)
+    milestones = _milestones(economy, state)
     total = 0.0
     for generator in economy.generators:
         owned = state.owned[generator.id]
-        multipliers = upgrade_multiplier(owned, economy.milestones) * prestige
+        multipliers = upgrade_multiplier(owned, milestones) * prestige
         total += production_total(generator.production_base, owned, multipliers)
     return total
 
 
-def _peak_branch_choice(economy: Economy, state: RunState, best_generator_roi: float) -> Choice | None:
-    """Score the delayed peak, not the immediate penalty.
-
-    Active ROI never reaches this function. Immediate production falls when
-    the branch is bought inside its commit window, so return_on_cost cannot
-    select it.
-    """
+def active_production(economy: Economy, state: RunState) -> float:
+    """Same rate the run uses: clicks plus generators times the branch modifier."""
+    prestige = prestige_multiplier(state.prestige_points, economy.prestige.point_value)
+    clicks = economy.active_click_per_second * prestige
     total_owned = sum(state.owned.values())
-    base_output = generator_output(economy, state)
-    current_multiplier = generator_branch_multiplier(economy.branches, state.branch_levels, total_owned)
-    best: Choice | None = None
+    branch = generator_branch_multiplier(economy.branches, state.branch_levels, total_owned)
+    return (clicks + generator_output(economy, state) * branch) * opening_boost(state)
+
+
+def _apply(state: RunState, choice: Choice) -> None:
+    state.currency -= choice.cost
+    if state.currency < 0 and abs(state.currency) < _PURCHASE_TOLERANCE * max(1.0, choice.cost):
+        state.currency = 0.0
+    if choice.kind == "branch":
+        state.branch_levels[choice.generator_id] = state.branch_levels.get(choice.generator_id, 0) + 1
+        return
+    state.owned[choice.generator_id] = state.owned.get(choice.generator_id, 0) + 1
+
+
+def _points_ready(economy: Economy, state: RunState) -> int:
+    config = economy.prestige
+    return prestige_points(
+        state.lifetime_currency,
+        coeff=config.coeff,
+        divisor=config.divisor,
+        exponent=config.exponent,
+    )
+
+
+def _best_instant(economy: Economy, state: RunState) -> Choice | None:
+    options = _instant_generators(economy, state, None)
+    if not options:
+        return None
+    return max(options, key=lambda option: (option.roi, -option.cost))
+
+
+def play_horizon(
+    economy: Economy,
+    state: RunState,
+    horizon_seconds: float,
+    first: Choice | None,
+) -> tuple[float, float, RunState]:
+    """Currency produced until the horizon or the next prestige wall.
+
+    `first` is bought before any later copy. Later copies are the best
+    instantaneous generator. The forecast does not buy branches and does
+    not call horizon ROI, so a branch decision cannot recurse.
+    """
+    if horizon_seconds < 0:
+        raise ValueError("horizon_seconds must be >= 0")
+    sim = state.copy()
+    if horizon_seconds == 0:
+        return 0.0, 0.0, sim
+    produced = 0.0
+    elapsed = 0.0
+    pending = first
+    steps = 0
+    limit = economy.simulation.max_purchases
+    stall = economy.prestige.stall_seconds
+    points_needed = economy.prestige.min_points_to_prestige
+    while elapsed < horizon_seconds - 1e-12 and steps < limit:
+        steps += 1
+        if pending is None:
+            pending = _best_instant(economy, sim)
+            if pending is None:
+                rate = active_production(economy, sim)
+                dt = horizon_seconds - elapsed
+                produced += rate * dt
+                sim.currency += rate * dt
+                sim.lifetime_currency += rate * dt
+                sim.t += dt
+                elapsed = horizon_seconds
+                break
+        rate = active_production(economy, sim)
+        if sim.currency + _PURCHASE_TOLERANCE >= pending.cost:
+            if sim.currency < pending.cost:
+                sim.currency = pending.cost
+            _apply(sim, pending)
+            pending = None
+            continue
+        if rate <= 0 or not math.isfinite(rate):
+            break
+        dt = (pending.cost - sim.currency) / rate
+        if not math.isfinite(dt) or dt < 0:
+            break
+        if dt >= stall and _points_ready(economy, sim) >= points_needed:
+            break
+        remaining = horizon_seconds - elapsed
+        step = dt if dt <= remaining else remaining
+        produced += rate * step
+        sim.lifetime_currency += rate * step
+        sim.t += step
+        elapsed += step
+        if dt > remaining:
+            sim.currency += rate * step
+            break
+        sim.currency = pending.cost
+        _apply(sim, pending)
+        pending = None
+    return produced, elapsed, sim
+
+
+def _available_branches(economy: Economy, state: RunState) -> list[Choice]:
+    total_owned = sum(state.owned.values())
+    available: list[Choice] = []
     for branch in economy.branches:
         level = state.branch_levels.get(branch.id, 0)
-        if level >= branch.max_level or total_owned >= branch.commit_before_total_owned:
+        if level >= branch.max_level or not offer_is_open(branch, total_owned):
             continue
         cost = cost_next(branch.cost_base, branch.growth_rate, level)
         if not math.isfinite(cost) or cost <= 0:
             continue
-        destination = current_multiplier * branch.peak_net_multiplier
-        gain = (destination - current_multiplier) * base_output
-        if gain <= 0:
+        available.append(Choice(branch.id, cost, 0.0, kind="branch"))
+    return available
+
+
+def _generator_horizon_choices(
+    economy: Economy,
+    state: RunState,
+    allowed: set[str] | None,
+    horizon_seconds: float,
+) -> list[Choice]:
+    prestige = prestige_multiplier(state.prestige_points, economy.prestige.point_value)
+    choices: list[Choice] = []
+    for generator in economy.generators:
+        if allowed is not None and generator.id not in allowed:
             continue
-        destination_roi = gain / cost
-        if destination_roi > best_generator_roi and (best is None or destination_roi > best.roi):
-            best = Choice(branch.id, cost, gain, kind="branch")
-    return best
+        owned = state.owned[generator.id]
+        cost = cost_next(generator.cost_base, generator.growth_rate, owned)
+        if not math.isfinite(cost) or cost <= 0:
+            continue
+        ratio = return_on_cost(
+            generator,
+            owned,
+            _milestones(economy, state),
+            prestige,
+            horizon_seconds=horizon_seconds,
+        )
+        if ratio <= 0:
+            continue
+        choices.append(Choice(generator.id, cost, ratio * cost))
+    return choices
+
+
+def _branch_production_change(
+    economy: Economy,
+    state: RunState,
+    branch: Choice,
+    horizon_seconds: float,
+    baseline_produced: float,
+    baseline_elapsed: float,
+) -> float:
+    """Currency the branch adds over the shared window, versus not buying it."""
+    produced, elapsed, _ = play_horizon(economy, state, horizon_seconds, branch)
+    shared = min(baseline_elapsed, elapsed)
+    if shared <= 0:
+        return 0.0
+    if baseline_elapsed > shared + 1e-6:
+        base, _, _ = play_horizon(economy, state, shared, None)
+    else:
+        base = baseline_produced
+    if elapsed > shared + 1e-6:
+        gained, _, _ = play_horizon(economy, state, shared, branch)
+    else:
+        gained = produced
+    return gained - base
+
+
+def rank_choices(economy: Economy, state: RunState, policy: str) -> list[Choice]:
+    """Highest horizon ROI first. Generators and branches share one ratio."""
+    if policy not in _POLICIES:
+        raise ValueError(f"unknown purchase policy: {policy}")
+    allowed = _patient_ids(economy, state) if policy == "patient" else None
+    horizon = economy.simulation.roi_horizon_minutes * 60.0
+    branches = [] if policy == "cheapest" else _available_branches(economy, state)
+    if not branches:
+        ranked = _generator_horizon_choices(economy, state, allowed, horizon)
+        if policy == "cheapest":
+            return sorted(ranked, key=lambda option: (option.cost, option.generator_id))
+        return sorted(ranked, key=lambda option: (option.roi, -option.cost), reverse=True)
+
+    baseline_produced, baseline_elapsed, _ = play_horizon(economy, state, horizon, None)
+    if baseline_elapsed <= 0:
+        ranked = _generator_horizon_choices(economy, state, allowed, horizon)
+        return sorted(ranked, key=lambda option: (option.roi, -option.cost), reverse=True)
+
+    ranked = _generator_horizon_choices(economy, state, allowed, baseline_elapsed)
+    for branch in branches:
+        change = _branch_production_change(
+            economy,
+            state,
+            branch,
+            horizon,
+            baseline_produced,
+            baseline_elapsed,
+        )
+        ranked.append(Choice(branch.generator_id, branch.cost, change, kind="branch"))
+    return sorted(ranked, key=lambda option: (option.roi, -option.cost), reverse=True)
+
+
+def _relic_currency_change(economy: Economy, state: RunState, relic: Relic) -> float:
+    """Currency the relic adds over the horizon. Session-start effects stay at 0.
+
+    A relic bought mid-run does not replay the session start. The prestige
+    exchange pays on the next reset, which this horizon does not reach.
+    """
+    if relic.extra_milestone is None:
+        return 0.0
+    horizon = economy.simulation.roi_horizon_minutes * 60.0
+    produced, elapsed, _ = play_horizon(economy, state, horizon, None)
+    alt = state.copy()
+    alt.relic_levels[relic.id] = alt.relic_levels.get(relic.id, 0) + 1
+    gained, alt_elapsed, _ = play_horizon(economy, alt, horizon, None)
+    shared = min(elapsed, alt_elapsed)
+    if shared <= 0:
+        return 0.0
+    if elapsed > shared + 1e-6:
+        produced, _, _ = play_horizon(economy, state, shared, None)
+    if alt_elapsed > shared + 1e-6:
+        gained, _, _ = play_horizon(economy, alt, shared, None)
+    return gained - produced
+
+
+def spend_insight(economy: Economy, state: RunState) -> list[Choice]:
+    """Buy insight options whose horizon production change is positive.
+
+    Insight is not generator currency, so these purchases are not ranked
+    against generators. The exchange is skipped: its points are not in
+    this run's multiplier.
+    """
+    bought: list[Choice] = []
+    offered = len(economy.relics.relics)
+    for _ in range(offered):
+        affordable = [
+            relic
+            for relic in economy.relics.relics
+            if state.relic_levels.get(relic.id, 0) < relic.max_level
+            and state.insight >= relic.insight_cost
+        ]
+        if not affordable:
+            break
+        scored: list[Choice] = []
+        for relic in affordable:
+            change = _relic_currency_change(economy, state, relic)
+            if change <= 0:
+                continue
+            scored.append(Choice(relic.id, float(relic.insight_cost), change, kind="relic"))
+        if not scored:
+            break
+        choice = max(scored, key=lambda option: (option.roi, -option.cost))
+        state.insight -= int(choice.cost)
+        state.relic_levels[choice.generator_id] = state.relic_levels.get(choice.generator_id, 0) + 1
+        bought.append(choice)
+    return bought
 
 
 def choose(economy: Economy, state: RunState, policy: str, rng: random.Random | None = None) -> Choice | None:
-    if policy == "patient":
-        options = _choices(economy, state, _patient_ids(economy, state))
-    else:
-        options = _choices(economy, state, None)
-    if not options:
+    if policy not in _POLICIES:
+        raise ValueError(f"unknown purchase policy: {policy}")
+    ranked = rank_choices(economy, state, policy)
+    if not ranked:
         return None
     if policy == "cheapest":
-        return min(options, key=lambda option: (option.cost, option.generator_id))
-    ranked = sorted(options, key=lambda option: (option.roi, -option.cost), reverse=True)
-    if policy == "peak":
-        branch_choice = _peak_branch_choice(economy, state, ranked[0].roi)
-        if branch_choice is not None:
-            return branch_choice
         return ranked[0]
     if policy == "roi_noisy":
         if rng is None:
@@ -127,6 +361,4 @@ def choose(economy: Economy, state: RunState, policy: str, rng: random.Random | 
         if len(ranked) > 1 and rng.random() < economy.simulation.noisy_second_best_probability:
             return ranked[1]
         return ranked[0]
-    if policy not in {"roi", "patient"}:
-        raise ValueError(f"unknown purchase policy: {policy}")
     return ranked[0]

@@ -29,6 +29,13 @@ class RunState:
     prestige_points: int = 0
     prestige_count: int = 0
     branch_levels: dict[str, int] = field(default_factory=dict)
+    insight: int = 0
+    relic_levels: dict[str, int] = field(default_factory=dict)
+    claimed_insight_sources: set[str] = field(default_factory=set)
+    pending_prestige_points: int = 0
+    session_boost_until: float = 0.0
+    session_boost_multiplier: float = 1.0
+    session_started: bool = False
 
     def copy(self) -> RunState:
         return RunState(
@@ -39,6 +46,13 @@ class RunState:
             prestige_points=self.prestige_points,
             prestige_count=self.prestige_count,
             branch_levels=dict(self.branch_levels),
+            insight=self.insight,
+            relic_levels=dict(self.relic_levels),
+            claimed_insight_sources=set(self.claimed_insight_sources),
+            pending_prestige_points=self.pending_prestige_points,
+            session_boost_until=self.session_boost_until,
+            session_boost_multiplier=self.session_boost_multiplier,
+            session_started=self.session_started,
         )
 
 
@@ -136,6 +150,12 @@ def apply_prestige(
         exponent=config.exponent,
         point_value=config.point_value,
     )
+    bonus = state.pending_prestige_points
+    if bonus:
+        result = dict(result)
+        result["points_gained"] = int(result["points_gained"]) + bonus
+        result["points_total"] = int(result["points_total"]) + bonus
+        result["multiplier"] = prestige_multiplier(int(result["points_total"]), config.point_value)
     reset = RunState(
         t=0.0,
         currency=0.0,
@@ -144,5 +164,10 @@ def apply_prestige(
         prestige_points=int(result["points_total"]),
         prestige_count=state.prestige_count + 1,
         branch_levels={},
+        insight=state.insight,
+        relic_levels=dict(state.relic_levels),
+        claimed_insight_sources=set(),
+        pending_prestige_points=0,
+        session_started=False,
     )
     return reset, result

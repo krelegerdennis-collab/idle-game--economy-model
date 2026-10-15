@@ -6,10 +6,11 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from model.generators import Branch, Generator, Milestone
+from model.generators import Branch, CommitThresholdFormula, Generator, Milestone
 from model.monetization import MonetizationConfig
 from model.offline import OfflineConfig
 from model.prestige import PrestigeConfig
+from model.relics import InsightSource, PrestigeExchange, Relic, RelicConfig
 from model.retention import RetentionTargets
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,6 +23,7 @@ DATA_FILES = (
     "simulation.json",
     "retention_targets.json",
     "analytics.json",
+    "relics.json",
 )
 
 
@@ -37,6 +39,7 @@ class SimulationConfig:
     population_weights: dict[str, float]
     ten_x_production_multiplier: float
     max_prestige_resets: int
+    roi_horizon_minutes: float
 
 
 @dataclass(frozen=True)
@@ -53,6 +56,7 @@ class Economy:
     simulation: SimulationConfig
     retention: RetentionTargets
     analytics_events: tuple[dict[str, object], ...]
+    relics: RelicConfig
     data_dir: Path
 
 
@@ -116,6 +120,18 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
 
     branches: list[Branch] = []
     for raw in upgrades_file.get("branches", []):
+        if "commit_before_total_owned" in raw:
+            raise ValueError(
+                f"{raw.get('id', 'branch')} commit_before_total_owned is fixed; "
+                "use commit_threshold_formula"
+            )
+        formula_raw = raw["commit_threshold_formula"]
+        if not isinstance(formula_raw, dict):
+            raise ValueError(f"{raw.get('id', 'branch')} commit_threshold_formula must be an object")
+        formula = CommitThresholdFormula(
+            base=int(formula_raw["base"]),
+            owned_divisor=int(formula_raw["owned_divisor"]),
+        )
         branch = Branch(
             id=str(raw["id"]),
             cost_base=float(raw["cost_base"]),
@@ -124,7 +140,7 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
             active_production_multiplier=float(raw["active_production_multiplier"]),
             peak_production_multiplier=float(raw["peak_production_multiplier"]),
             peak_total_owned_at_least=int(raw["peak_total_owned_at_least"]),
-            commit_before_total_owned=int(raw["commit_before_total_owned"]),
+            commit_threshold_formula=formula,
         )
         if branch.growth_rate <= 1 or branch.cost_base <= 0:
             raise ValueError(f"{branch.id} cost must grow exponentially from a positive base")
@@ -134,13 +150,10 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
             raise ValueError(f"{branch.id} active_production_multiplier must be between 0 and 1")
         if branch.peak_net_multiplier <= 1:
             raise ValueError(f"{branch.id} peak net multiplier must exceed 1, otherwise it is not a peak")
-        if branch.peak_total_owned_at_least < 1 or branch.commit_before_total_owned < 1:
-            raise ValueError(f"{branch.id} owned thresholds must be >= 1")
-        if branch.commit_before_total_owned > branch.peak_total_owned_at_least:
-            raise ValueError(
-                f"{branch.id} commit window must close at or before the peak, "
-                "so the purchase is only offered while it still slows active production"
-            )
+        if branch.peak_total_owned_at_least < 1:
+            raise ValueError(f"{branch.id} peak_total_owned_at_least must be >= 1")
+        if formula.base < 1 or formula.owned_divisor < 1:
+            raise ValueError(f"{branch.id} commit_threshold_formula base and owned_divisor must be >= 1")
         branches.append(branch)
     generator_ids = {item.id for item in generators}
     branch_ids = {item.id for item in branches}
@@ -194,6 +207,15 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
     weights = {str(key): float(value) for key, value in simulation_file["population_weights"].items()}
     if any(value < 0 for value in weights.values()) or sum(weights.values()) <= 0:
         raise ValueError("population_weights must be non-negative and sum to more than 0")
+    known_policies = {"roi", "roi_noisy", "patient", "cheapest"}
+    unknown = set(weights).difference(known_policies)
+    if unknown:
+        raise ValueError(
+            f"unknown population policy {sorted(unknown)}; ROI is the only purchase objective"
+        )
+    roi_horizon_minutes = float(simulation_file["roi_horizon_minutes"])
+    if roi_horizon_minutes <= 0:
+        raise ValueError("roi_horizon_minutes must be > 0")
     simulation = SimulationConfig(
         max_active_seconds=float(simulation_file["max_active_seconds"]),
         max_purchases=int(simulation_file["max_purchases"]),
@@ -205,11 +227,14 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
         population_weights=weights,
         ten_x_production_multiplier=float(simulation_file["ten_x_production_multiplier"]),
         max_prestige_resets=int(simulation_file["max_prestige_resets"]),
+        roi_horizon_minutes=roi_horizon_minutes,
     )
     if simulation.ten_x_production_multiplier <= 1:
         raise ValueError("ten_x_production_multiplier must be > 1")
     if simulation.max_prestige_resets < 1:
         raise ValueError("max_prestige_resets must be >= 1")
+    if simulation.primary_policy not in known_policies:
+        raise ValueError(f"unknown primary_policy: {simulation.primary_policy}")
 
     projection = {str(key): float(value) for key, value in retention_file["projection"].items()}
     retention = RetentionTargets(
@@ -226,6 +251,8 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
         min_tiers_unlocked=int(retention_file["min_tiers_unlocked"]),
         projection=projection,
     )
+
+    relics = _parse_relics(files.get("relics.json"), generator_ids)
 
     events = tuple(analytics_file["events"])
     names = [str(event["name"]) for event in events]
@@ -247,7 +274,94 @@ def parse_economy(files: dict[str, dict], data_dir: Path) -> Economy:
         simulation=simulation,
         retention=retention,
         analytics_events=events,
+        relics=relics,
         data_dir=data_dir,
+    )
+
+
+def _parse_relics(payload: dict | None, generator_ids: set[str]) -> RelicConfig:
+    if not payload:
+        return RelicConfig("insight", (), None, ())
+    sources: list[InsightSource] = []
+    for raw in payload.get("sources", []):
+        kind = str(raw["kind"])
+        if kind not in {"total_owned_at_least", "prestige_points_at_least"}:
+            raise ValueError(f"unknown insight source kind: {kind}")
+        source = InsightSource(
+            id=str(raw["id"]),
+            kind=kind,
+            threshold=int(raw["threshold"]),
+            insight=int(raw["insight"]),
+        )
+        if source.threshold < 1 or source.insight < 1:
+            raise ValueError(f"{source.id} threshold and insight must be >= 1")
+        sources.append(source)
+    if len({item.id for item in sources}) != len(sources):
+        raise ValueError("insight source ids must be unique")
+
+    exchange: PrestigeExchange | None = None
+    raw_exchange = payload.get("prestige_exchange")
+    if raw_exchange is not None:
+        applies = str(raw_exchange["applies"])
+        if applies != "next_reset":
+            raise ValueError("prestige exchange applies must be next_reset")
+        exchange = PrestigeExchange(
+            id=str(raw_exchange["id"]),
+            insight_cost=int(raw_exchange["insight_cost"]),
+            bonus_points=int(raw_exchange["bonus_points"]),
+            applies=applies,
+        )
+        if exchange.insight_cost < 1 or exchange.bonus_points < 1:
+            raise ValueError(f"{exchange.id} insight_cost and bonus_points must be >= 1")
+
+    relics: list[Relic] = []
+    for raw in payload.get("relics", []):
+        milestone_raw = raw.get("extra_milestone")
+        milestone = None
+        if milestone_raw is not None:
+            milestone = Milestone(
+                owned_at_least=int(milestone_raw["owned_at_least"]),
+                production_multiplier=float(milestone_raw["production_multiplier"]),
+            )
+            if milestone.owned_at_least < 1 or milestone.production_multiplier <= 0:
+                raise ValueError(f"{raw.get('id', 'relic')} extra milestone must raise production")
+        chance = float(raw.get("session_start_free_generator_chance", 0))
+        free_generator_id = raw.get("free_generator_id")
+        free_id = None if free_generator_id is None else str(free_generator_id)
+        relic = Relic(
+            id=str(raw["id"]),
+            insight_cost=int(raw["insight_cost"]),
+            max_level=int(raw["max_level"]),
+            offline_rate_add=float(raw.get("offline_rate_add", 0)),
+            session_start_free_generator_chance=chance,
+            free_generator_id=free_id,
+            extra_milestone=milestone,
+            session_open_boost_multiplier=float(raw.get("session_open_boost_multiplier", 1)),
+            session_open_boost_seconds=float(raw.get("session_open_boost_seconds", 0)),
+        )
+        if relic.insight_cost < 1 or relic.max_level < 1:
+            raise ValueError(f"{relic.id} insight_cost and max_level must be >= 1")
+        if relic.offline_rate_add < 0:
+            raise ValueError(f"{relic.id} offline_rate_add must be >= 0")
+        if not 0 <= relic.session_start_free_generator_chance <= 1:
+            raise ValueError(f"{relic.id} session_start_free_generator_chance must be between 0 and 1")
+        if relic.session_start_free_generator_chance > 0 and free_id not in generator_ids:
+            raise ValueError(f"{relic.id} free_generator_id must name a generator")
+        if relic.session_open_boost_seconds < 0 or relic.session_open_boost_multiplier <= 0:
+            raise ValueError(f"{relic.id} session boost must be a positive multiplier over a non-negative window")
+        relics.append(relic)
+    ids = [item.id for item in relics]
+    if len(set(ids)) != len(ids):
+        raise ValueError("relic ids must be unique")
+    if exchange is not None and exchange.id in ids:
+        raise ValueError("prestige exchange id must not reuse a relic id")
+    if set(ids).intersection(generator_ids):
+        raise ValueError("relic ids must not reuse a generator id")
+    return RelicConfig(
+        currency_id=str(payload.get("currency_id", "insight")),
+        sources=tuple(sources),
+        prestige_exchange=exchange,
+        relics=tuple(relics),
     )
 
 

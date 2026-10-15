@@ -8,11 +8,9 @@
   "noisy_seed": 7,
   "ten_x_production_multiplier": 10,
   "max_prestige_resets": 12,
+  "roi_horizon_minutes": 10,
   "population_weights": {
-    "roi": 30,
-    "roi_noisy": 20,
-    "patient": 10,
-    "cheapest": 5,
-    "peak": 35
+    "roi": 1,
+    "roi_noisy": 20
   }
 }

@@ -80,8 +80,11 @@
       "maxLevel": 1,
       "activeProductionMultiplier": 0.7,
       "peakProductionMultiplier": 1.8,
-      "peakTotalOwnedAtLeast": 70,
-      "commitBeforeTotalOwned": 55
+      "peakTotalOwnedAtLeast": 68,
+      "commitThresholdFormula": {
+        "base": 50,
+        "ownedDivisor": 10
+      }
     }
   ],
   "prestige": {
@@ -102,6 +105,90 @@
     "optionalBoostMultiplier": 2.0,
     "optionalBoostSeconds": 600.0,
     "defaultAction": "decline_offer"
+  },
+  "relics": {
+    "currencyId": "insight",
+    "sources": [
+      {
+        "id": "owned_10",
+        "kind": "total_owned_at_least",
+        "threshold": 10,
+        "insight": 1
+      },
+      {
+        "id": "owned_25",
+        "kind": "total_owned_at_least",
+        "threshold": 25,
+        "insight": 1
+      },
+      {
+        "id": "owned_50",
+        "kind": "total_owned_at_least",
+        "threshold": 50,
+        "insight": 1
+      },
+      {
+        "id": "prestige_ready",
+        "kind": "prestige_points_at_least",
+        "threshold": 1,
+        "insight": 2
+      }
+    ],
+    "prestigeExchange": {
+      "id": "insight_prestige",
+      "insightCost": 2,
+      "bonusPoints": 1,
+      "applies": "next_reset"
+    },
+    "items": [
+      {
+        "id": "offline_ledger",
+        "insightCost": 1,
+        "maxLevel": 1,
+        "offlineRateAdd": 0.05,
+        "sessionStartFreeGeneratorChance": 0.0,
+        "freeGeneratorId": null,
+        "extraMilestone": null,
+        "sessionOpenBoostMultiplier": 1.0,
+        "sessionOpenBoostSeconds": 0.0
+      },
+      {
+        "id": "workshop_key",
+        "insightCost": 1,
+        "maxLevel": 1,
+        "offlineRateAdd": 0.0,
+        "sessionStartFreeGeneratorChance": 0.25,
+        "freeGeneratorId": "generator_1",
+        "extraMilestone": null,
+        "sessionOpenBoostMultiplier": 1.0,
+        "sessionOpenBoostSeconds": 0.0
+      },
+      {
+        "id": "fifth_slot",
+        "insightCost": 2,
+        "maxLevel": 1,
+        "offlineRateAdd": 0.0,
+        "sessionStartFreeGeneratorChance": 0.0,
+        "freeGeneratorId": null,
+        "extraMilestone": {
+          "ownedAtLeast": 75,
+          "productionMultiplier": 2.0
+        },
+        "sessionOpenBoostMultiplier": 1.0,
+        "sessionOpenBoostSeconds": 0.0
+      },
+      {
+        "id": "return_flare",
+        "insightCost": 1,
+        "maxLevel": 1,
+        "offlineRateAdd": 0.0,
+        "sessionStartFreeGeneratorChance": 0.0,
+        "freeGeneratorId": null,
+        "extraMilestone": null,
+        "sessionOpenBoostMultiplier": 1.5,
+        "sessionOpenBoostSeconds": 120.0
+      }
+    ]
   },
   "analyticsEvents": [
     {

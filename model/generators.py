@@ -26,14 +26,27 @@ class Milestone:
 
 
 @dataclass(frozen=True)
+class CommitThresholdFormula:
+    """Scaling close for a branch offer.
+
+    commit_threshold = base + floor(total_owned / owned_divisor)
+
+    The cap moves with progress. It is not a fixed owned count.
+    """
+
+    base: int
+    owned_divisor: int
+
+
+@dataclass(frozen=True)
 class Branch:
     """A purchased modifier that competes with buying the next generator.
 
     `active_production_multiplier` applies as soon as the branch is owned and
     must be below 1. `peak_production_multiplier` applies only once total
-    generator copies reach `peak_total_owned_at_least`. The offer closes at
-    `commit_before_total_owned`, which is at or before that peak, so the
-    purchase is only available while its immediate effect is still a penalty.
+    generator copies reach `peak_total_owned_at_least`. The offer stays open
+    while total owned is still under `commit_threshold` and under that peak,
+    so the purchase is only available while its immediate effect is a penalty.
     """
 
     id: str
@@ -43,7 +56,7 @@ class Branch:
     active_production_multiplier: float
     peak_production_multiplier: float
     peak_total_owned_at_least: int
-    commit_before_total_owned: int
+    commit_threshold_formula: CommitThresholdFormula
 
     @property
     def peak_net_multiplier(self) -> float:
@@ -57,6 +70,31 @@ class Generator:
     cost_base: float
     growth_rate: float
     production_base: float
+
+
+def commit_threshold(formula: CommitThresholdFormula, total_owned: int) -> int:
+    """base + floor(total_owned / owned_divisor)."""
+    if total_owned < 0:
+        raise ValueError("total_owned must be >= 0")
+    if formula.base < 1:
+        raise ValueError("commit threshold base must be >= 1")
+    if formula.owned_divisor < 1:
+        raise ValueError("owned_divisor must be >= 1")
+    return formula.base + math.floor(total_owned / formula.owned_divisor)
+
+
+def offer_is_open(branch: Branch, total_owned: int) -> bool:
+    """True while the contract can still be bought as a production dip.
+
+    The scaling cap and the peak both have to sit strictly above total owned.
+    Once total owned has reached the peak, the modifier would raise production
+    immediately, so the offer is no longer a commit.
+    """
+    if total_owned < 0:
+        raise ValueError("total_owned must be >= 0")
+    if total_owned >= branch.peak_total_owned_at_least:
+        return False
+    return total_owned < commit_threshold(branch.commit_threshold_formula, total_owned)
 
 
 def cost_next(cost_base: float, growth_rate: float, owned: int) -> float:
@@ -138,20 +176,28 @@ def return_on_cost(
     owned: int,
     milestones: tuple[Milestone, ...],
     prestige_multiplier: float,
+    horizon_seconds: float,
 ) -> float:
-    """Immediate marginal production per currency spent on the next copy.
+    """Production gained over the horizon, per currency spent on the next copy.
 
-    This ratio uses only the production change at the moment of purchase.
-    A branch that lowers production now and raises it after an owned-count
-    threshold has a negative immediate marginal, so it cannot win this
-    comparison. That is why active-ROI policies stay on the generator line.
-    The delayed branch is scored by its own objective, not by changing this
-    formula.
+    The gain is marginal production times `horizon_seconds` of active play.
+    Callers pass the configured ROI horizon, shortened to the time left until
+    the next prestige when that moment comes first. A longer window scales
+    every generator by the same factor, so generator order is unchanged.
+
+    A branch whose multiplier changes inside the window is not scored here.
+    Its production change is the integral of the two play paths over that
+    same horizon, divided by its cost, and ranked against this ratio.
     """
+    if horizon_seconds <= 0:
+        raise ValueError("horizon_seconds must be > 0")
     cost = cost_next(generator.cost_base, generator.growth_rate, owned)
     if not math.isfinite(cost) or cost <= 0:
         return 0.0
-    return marginal_production(generator, owned, milestones, prestige_multiplier) / cost
+    marginal = marginal_production(generator, owned, milestones, prestige_multiplier)
+    if not math.isfinite(marginal):
+        return 0.0
+    return marginal * float(horizon_seconds) / cost
 
 
 def production_is_subexponential(
@@ -167,13 +213,15 @@ def production_is_subexponential(
     """
     if generator.growth_rate <= 1 or generator.production_base <= 0:
         return False
-    opening = return_on_cost(generator, 0, milestones, 1.0)
+    # Any shared positive window preserves later < opening. One second is the
+    # unit interval for that comparison, not a balance value.
+    opening = return_on_cost(generator, 0, milestones, 1.0, horizon_seconds=1)
     if opening <= 0 or not math.isfinite(opening):
         return False
     later_cost = cost_next(generator.cost_base, generator.growth_rate, sample_owned)
     if not math.isfinite(later_cost):
         return True
-    later = return_on_cost(generator, sample_owned, milestones, 1.0)
+    later = return_on_cost(generator, sample_owned, milestones, 1.0, horizon_seconds=1)
     return later < opening
 
 
