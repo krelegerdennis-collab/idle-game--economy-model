@@ -216,16 +216,22 @@ a new file does not need a code change:
 
 The audio id in `presentation.json` is the path without `Assets/` and
 without the extension, for example `Audio/Music/idle`. An editor import
-writes the clip onto `Assets/Resources/AudioLibrary.asset`. Until that clip
-exists, `AudioManager` plays a short generated tone from the frequencies in
-`presentation.json`.
+writes the clip onto `Assets/Resources/AudioLibrary.asset`. Music files
+are MP3 in `unity/Playtest/Assets/Audio/Music/`. Effect files are WAV in
+`unity/Playtest/Assets/Audio/SFX/`. `AudioManager` keeps `musicClips` and
+`sfxClips` empty until those files exist, and it plays only from the
+array that has a clip. The game stays silent until clips are assigned.
 
 Actors use `Assets/Resources/Animators/PixelActor.controller` with states
-Idle, Attack, Celebrate, and Hurt. The five classes in `art.classes`
+Idle, Attack, Celebrate, and Hurt. Each actor is an Image on the UI
+canvas. The selected class is anchored at the bottom of the screen, and
+enemies stand in a row above that hero. The backdrop is a full-screen
+Image with preserve aspect off. The five classes in `art.classes`
 are skins of the same main character. The chosen id is stored under
 `art.classPrefKey` and does not change production. Enemy, UI, and
 background PNGs are cut from the same sheet into `Assets/Sprites/` and
-copied to StreamingAssets. A loaded sprite is drawn at its own colors.
+copied to StreamingAssets. Those textures import with point filtering and
+compression set to none. A loaded sprite is drawn at its own colors.
 The actor `color` is only the rectangle fallback.
 
 TextMeshPro draws the floating numbers. Unity 2022 still needs its own TMP

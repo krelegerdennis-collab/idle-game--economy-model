@@ -76,15 +76,6 @@ namespace Playtest
         public string CritSfx;
         public string[] Extensions;
         public float BossApproachRatio;
-        public float IdleHz;
-        public float BossHz;
-        public float ClickHz;
-        public float UpgradeHz;
-        public float CritHz;
-        public float LoopSeconds;
-        public float SfxSeconds;
-        public int SampleRate;
-        public float Amplitude;
 
         public string AnimatorResource;
         public float PixelsPerUnit;
@@ -135,26 +126,6 @@ namespace Playtest
             if (Poses != null && Poses.TryGetValue(state, out scale))
                 return scale;
             return 1f;
-        }
-
-        public float ToneHz(string id)
-        {
-            if (id == IdleTrack)
-                return IdleHz;
-            if (id == BossTrack)
-                return BossHz;
-            if (id == ClickSfx)
-                return ClickHz;
-            if (id == UpgradeSfx)
-                return UpgradeHz;
-            if (id == CritSfx)
-                return CritHz;
-            return ClickHz;
-        }
-
-        public bool Loops(string id)
-        {
-            return id == IdleTrack || id == BossTrack;
         }
 
         public ClassChoice FindClass(string id)
@@ -209,6 +180,8 @@ namespace Playtest
             JsonValue feedback = Required(root, "feedback", "presentation.json");
             JsonValue audio = Required(root, "audio", "presentation.json");
             JsonValue tone = Required(audio, "placeholder", "presentation.json");
+            if (tone.Type != JsonValue.Kind.Object)
+                throw new InvalidOperationException("presentation.json audio.placeholder is not an object");
             JsonValue actors = Required(root, "actors", "presentation.json");
             JsonValue art = Required(root, "art", "presentation.json");
             JsonValue copy = Required(root, "copy", "presentation.json");
@@ -259,15 +232,6 @@ namespace Playtest
                 CritSfx = RequiredString(audio, "critSfx", "presentation.json"),
                 Extensions = ReadExtensions(audio),
                 BossApproachRatio = RequiredFloat(audio, "bossApproachRatio", "presentation.json"),
-                IdleHz = RequiredFloat(tone, "idleHz", "presentation.json"),
-                BossHz = RequiredFloat(tone, "bossHz", "presentation.json"),
-                ClickHz = RequiredFloat(tone, "clickHz", "presentation.json"),
-                UpgradeHz = RequiredFloat(tone, "upgradeHz", "presentation.json"),
-                CritHz = RequiredFloat(tone, "critHz", "presentation.json"),
-                LoopSeconds = RequiredFloat(tone, "loopSeconds", "presentation.json"),
-                SfxSeconds = RequiredFloat(tone, "sfxSeconds", "presentation.json"),
-                SampleRate = RequiredInt(tone, "sampleRate", "presentation.json"),
-                Amplitude = RequiredFloat(tone, "amplitude", "presentation.json"),
                 AnimatorResource = RequiredString(actors, "animatorResource", "presentation.json"),
                 PixelsPerUnit = RequiredFloat(actors, "pixelsPerUnit", "presentation.json"),
                 CueSeconds = RequiredFloat(actors, "cueSeconds", "presentation.json"),

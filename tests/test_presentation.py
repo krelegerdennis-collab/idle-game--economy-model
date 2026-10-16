@@ -136,6 +136,46 @@ def _paeth(left: int, up: int, up_left: int) -> int:
     return up_left
 
 
+def test_playtest_is_silent_without_clips_and_draws_actors_on_the_canvas():
+    assets = ROOT / "unity" / "Playtest" / "Assets"
+    sources = {
+        path.relative_to(assets).as_posix(): path.read_text(encoding="utf-8")
+        for path in assets.rglob("*.cs")
+    }
+    blob = "\n".join(sources.values())
+    assert "AudioClip.Create" not in blob
+    assert "OnAudioFilterRead" not in blob
+    assert "SpriteRenderer" not in blob
+    audio = sources["Scripts/AudioManager.cs"]
+    assert "musicClips" in audio
+    assert "sfxClips" in audio
+    assert "AudioSource" in audio
+    assert "Mathf.Sin" not in audio
+    character = sources["Scripts/CharacterController.cs"]
+    assert "UnityEngine.UI" in character
+    assert "FilterMode.Point" in character
+    assert "LoadImage" in character
+    controller = sources["PlaytestController.cs"]
+    assert "audioManager" in controller
+    assert "preserveAspect = false" in controller
+    assert "row.transform" in controller
+    enemy = sources["Scripts/EnemyController.cs"]
+    assert "anchorMin" in enemy
+    sprites = list((assets / "Sprites").rglob("*.png"))
+    assert sprites
+    for png in sprites:
+        meta = Path(str(png) + ".meta")
+        text = meta.read_text(encoding="utf-8")
+        assert "TextureImporter:" in text
+        assert "filterMode: 0" in text
+        assert "textureCompression: 0" in text
+    streaming = assets / "StreamingAssets"
+    for meta in streaming.rglob("*.png.meta"):
+        text = meta.read_text(encoding="utf-8")
+        assert "filterMode: 0" in text
+        assert "textureCompression: 0" in text
+
+
 def test_bad_cosmetic_slot_is_rejected(tmp_path: Path):
     directory = tmp_path / "data"
     directory.mkdir()

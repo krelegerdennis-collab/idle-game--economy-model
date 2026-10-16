@@ -1,10 +1,11 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Playtest
 {
     public sealed class CharacterController : MonoBehaviour
     {
-        SpriteRenderer sprite;
+        Image image;
         Animator animator;
         string idleState;
         string current;
@@ -13,33 +14,60 @@ namespace Playtest
         bool returning;
         Color baseColor;
         PresentationConfig presentation;
-        int spriteHeight;
-        float spriteUnits;
+        float width;
+        float height;
+
+        public float Width
+        {
+            get { return width; }
+        }
+
+        public float Height
+        {
+            get { return height; }
+        }
 
         public void Bind(PresentationConfig source, ActorVisual visual, RuntimeAnimatorController controller, byte[] png)
         {
             presentation = source;
             idleState = source.IdleState;
             cueSeconds = source.CueSeconds;
-            spriteHeight = visual.Height;
-            spriteUnits = source.PixelsPerUnit;
-            Sprite picture = FromPng(png, spriteHeight, spriteUnits);
+            width = visual.Width;
+            height = visual.Height;
+            Sprite picture = FromPng(png);
             baseColor = picture == null ? visual.Color : Color.white;
-            sprite = gameObject.AddComponent<SpriteRenderer>();
-            sprite.sprite = picture == null ? Rectangle(visual, source.PixelsPerUnit) : picture;
-            sprite.color = baseColor;
-            animator = gameObject.AddComponent<Animator>();
+            image = gameObject.GetComponent<Image>();
+            if (image == null)
+                image = gameObject.AddComponent<Image>();
+            image.sprite = picture == null ? Rectangle(visual) : picture;
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+            image.color = baseColor;
+            animator = gameObject.GetComponent<Animator>();
+            if (animator == null)
+                animator = gameObject.AddComponent<Animator>();
             animator.runtimeAnimatorController = controller;
-            transform.position = new Vector3(visual.X, visual.Y, 0f);
             Show(idleState);
+        }
+
+        public void Pin(Vector2 anchor, Vector2 anchoredPosition)
+        {
+            RectTransform rect = transform as RectTransform;
+            if (rect == null)
+                return;
+            rect.anchorMin = anchor;
+            rect.anchorMax = anchor;
+            rect.pivot = new Vector2(0.5f, 0f);
+            rect.anchoredPosition = anchoredPosition;
+            rect.sizeDelta = new Vector2(width, height);
         }
 
         public void SetPicture(byte[] png)
         {
-            Sprite picture = FromPng(png, spriteHeight, spriteUnits);
-            if (picture == null || sprite == null)
+            Sprite picture = FromPng(png);
+            if (picture == null || image == null)
                 return;
-            sprite.sprite = picture;
+            image.sprite = picture;
             baseColor = Color.white;
             Show(current);
         }
@@ -71,31 +99,29 @@ namespace Playtest
                 animator.Play(state, 0, 0f);
             float scale = presentation == null ? 1f : presentation.PoseScale(state);
             transform.localScale = new Vector3(scale, scale, 1f);
-            if (sprite == null)
+            if (image == null)
                 return;
             bool hurt = presentation != null && state == presentation.PurchaseEnemy;
-            sprite.color = hurt ? presentation.Critical : baseColor;
+            image.color = hurt ? presentation.Critical : baseColor;
         }
 
-        static Sprite FromPng(byte[] png, int height, float pixelsPerUnit)
+        Sprite FromPng(byte[] png)
         {
-            if (png == null || png.Length == 0 || height < 1 || pixelsPerUnit <= 0f)
+            if (png == null || png.Length == 0 || presentation == null || presentation.PixelsPerUnit <= 0f)
                 return null;
             Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
             if (!texture.LoadImage(png))
                 return null;
             texture.filterMode = FilterMode.Point;
             texture.wrapMode = TextureWrapMode.Clamp;
-            float worldHeight = height / pixelsPerUnit;
-            float units = texture.height / worldHeight;
             return Sprite.Create(
                 texture,
                 new Rect(0f, 0f, texture.width, texture.height),
-                new Vector2(0.5f, 0.5f),
-                units);
+                new Vector2(0.5f, 0f),
+                presentation.PixelsPerUnit);
         }
 
-        static Sprite Rectangle(ActorVisual visual, float pixelsPerUnit)
+        Sprite Rectangle(ActorVisual visual)
         {
             Texture2D texture = new Texture2D(visual.Width, visual.Height, TextureFormat.RGBA32, false);
             Color[] pixels = new Color[visual.Width * visual.Height];
@@ -104,10 +130,13 @@ namespace Playtest
             texture.SetPixels(pixels);
             texture.filterMode = FilterMode.Point;
             texture.Apply();
+            float pixelsPerUnit = presentation == null || presentation.PixelsPerUnit <= 0f
+                ? 1f
+                : presentation.PixelsPerUnit;
             return Sprite.Create(
                 texture,
                 new Rect(0f, 0f, visual.Width, visual.Height),
-                new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0f),
                 pixelsPerUnit);
         }
     }

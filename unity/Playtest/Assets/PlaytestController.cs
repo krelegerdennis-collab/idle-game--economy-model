@@ -63,6 +63,7 @@ namespace Playtest
         readonly Dictionary<string, Outline> classOutlines = new Dictionary<string, Outline>();
         string selectedClass;
         Text classNameText;
+        RectTransform screenCanvas;
 
         void Awake()
         {
@@ -205,7 +206,7 @@ namespace Playtest
             RectTransform shakeRoot = BuildUi();
             feedback = gameObject.AddComponent<PresentationFeedback>();
             feedback.Bind(presentation, shakeRoot, view, tmpFont, font);
-            SpawnActors();
+            SpawnActors(screenCanvas);
             ready = true;
             OpenSession();
             SyncOffers();
@@ -459,16 +460,39 @@ namespace Playtest
             return null;
         }
 
-        void SpawnActors()
+        void BuildBackdrop(Transform canvas)
+        {
+            GameObject backdropObject = new GameObject("Backdrop", typeof(RectTransform), typeof(Image));
+            backdropObject.transform.SetParent(canvas, false);
+            Stretch(backdropObject.GetComponent<RectTransform>());
+            Image background = backdropObject.GetComponent<Image>();
+            byte[] pixels = Picture(presentation.StageBackground);
+            if (pixels != null)
+                background.sprite = UiSprite(pixels);
+            background.preserveAspect = false;
+            background.color = pixels == null ? presentation.Background : Color.white;
+            background.raycastTarget = false;
+            background.type = Image.Type.Simple;
+        }
+
+        void SpawnActors(RectTransform parent)
         {
             RuntimeAnimatorController controller = Resources.Load<RuntimeAnimatorController>(presentation.AnimatorResource);
-            GameObject heroObject = new GameObject(presentation.Hero.Id);
-            hero = heroObject.AddComponent<CharacterController>();
-            byte[] heroPng = Picture(SelectedSpritePath());
-            hero.Bind(presentation, presentation.Hero, controller, heroPng);
-            GameObject enemyObject = new GameObject("Enemies");
+            GameObject layerObject = new GameObject("Actors", typeof(RectTransform));
+            layerObject.transform.SetParent(parent, false);
+            layerObject.transform.SetSiblingIndex(1);
+            Stretch(layerObject.GetComponent<RectTransform>());
+
+            GameObject enemyObject = new GameObject("Enemies", typeof(RectTransform));
             enemies = enemyObject.AddComponent<EnemyController>();
-            enemies.Bind(presentation, controller, pictures);
+            enemies.Bind(presentation, controller, pictures, layerObject.GetComponent<RectTransform>());
+
+            GameObject heroObject = new GameObject(presentation.Hero.Id, typeof(RectTransform));
+            heroObject.transform.SetParent(layerObject.transform, false);
+            hero = heroObject.AddComponent<CharacterController>();
+            hero.Bind(presentation, presentation.Hero, controller, Picture(SelectedSpritePath()));
+            hero.Pin(new Vector2(0.5f, 0f), new Vector2(0f, presentation.Padding));
+            heroObject.transform.SetAsLastSibling();
         }
 
         void Save()
@@ -580,6 +604,8 @@ namespace Playtest
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(presentation.ReferenceWidth, presentation.ReferenceHeight);
             scaler.matchWidthOrHeight = presentation.MatchWidthOrHeight;
+            screenCanvas = canvasObject.GetComponent<RectTransform>();
+            BuildBackdrop(screenCanvas);
 
             GameObject rootObject = new GameObject("Shake", typeof(RectTransform), typeof(VerticalLayoutGroup));
             rootObject.transform.SetParent(canvasObject.transform, false);
@@ -599,15 +625,6 @@ namespace Playtest
             LayoutElement stageElement = stage.GetComponent<LayoutElement>();
             stageElement.preferredHeight = presentation.ReferenceHeight * presentation.StageFraction;
             stageElement.minHeight = stageElement.preferredHeight;
-            byte[] backdrop = Picture(presentation.StageBackground);
-            if (backdrop != null)
-            {
-                Image background = stage.AddComponent<Image>();
-                background.sprite = UiSprite(backdrop);
-                background.preserveAspect = true;
-                background.color = Color.white;
-                background.raycastTarget = false;
-            }
 
             BuildClassRow(shakeRoot);
             classNameText = MakeText(shakeRoot, presentation.BodySize, presentation.BodyMinHeight, presentation.Text);
@@ -704,7 +721,31 @@ namespace Playtest
                 button.Button.gameObject.SetActive(false);
                 contractButtons[branch.Id] = button;
             }
+            GameObject actorSpace = new GameObject("ActorSpace", typeof(RectTransform), typeof(LayoutElement));
+            actorSpace.transform.SetParent(shakeRoot, false);
+            LayoutElement actorElement = actorSpace.GetComponent<LayoutElement>();
+            float actorBand = ActorBandHeight();
+            actorElement.minHeight = actorBand;
+            actorElement.preferredHeight = actorBand;
             return shakeRoot;
+        }
+
+        float ActorBandHeight()
+        {
+            float enemyHeight = 0f;
+            if (presentation.Enemies != null)
+            {
+                for (int index = 0; index < presentation.Enemies.Length; index++)
+                {
+                    float height = presentation.Enemies[index].Height;
+                    if (height > enemyHeight)
+                        enemyHeight = height;
+                }
+            }
+            float band = presentation.Hero == null ? 0f : presentation.Hero.Height;
+            if (enemyHeight > 0f)
+                band += presentation.Spacing + enemyHeight;
+            return band;
         }
 
         void BuildClassRow(Transform parent)

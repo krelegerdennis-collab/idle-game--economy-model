@@ -7,56 +7,106 @@ namespace Playtest
     {
         const string LibraryResource = "AudioLibrary";
 
+        public AudioClip[] musicClips = new AudioClip[0];
+        public AudioClip[] sfxClips = new AudioClip[0];
+
         PresentationConfig presentation;
         AudioLibrary library;
         AudioSource music;
         AudioSource effects;
         string currentTrack;
-        readonly Dictionary<string, AudioClip> generated = new Dictionary<string, AudioClip>();
 
         public void Open(PresentationConfig source, GameObject host)
         {
             presentation = source;
             library = Resources.Load<AudioLibrary>(LibraryResource);
-            music = host.AddComponent<AudioSource>();
-            music.playOnAwake = false;
-            music.loop = true;
-            effects = host.AddComponent<AudioSource>();
-            effects.playOnAwake = false;
-            effects.loop = false;
-            PlayTrack(presentation.IdleTrack);
+            if (musicClips == null)
+                musicClips = new AudioClip[0];
+            if (sfxClips == null)
+                sfxClips = new AudioClip[0];
+            AdoptRealClips();
+            if (host != null)
+            {
+                music = host.AddComponent<AudioSource>();
+                music.playOnAwake = false;
+                music.loop = false;
+                music.mute = true;
+                music.clip = null;
+                effects = host.AddComponent<AudioSource>();
+                effects.playOnAwake = false;
+                effects.loop = false;
+                effects.mute = true;
+                effects.clip = null;
+            }
+            if (HasClips(musicClips) && presentation != null)
+            {
+                if (music != null)
+                    music.mute = false;
+                PlayTrack(presentation.IdleTrack);
+            }
         }
 
         public void SetBoss(bool boss)
         {
-            if (presentation == null)
+            if (!HasClips(musicClips) || presentation == null)
                 return;
             PlayTrack(boss ? presentation.BossTrack : presentation.IdleTrack);
         }
 
         public void PlayClick()
         {
-            PlayEffect(presentation == null ? null : presentation.ClickSfx);
+            if (!HasClips(sfxClips) || presentation == null)
+                return;
+            PlayEffect(presentation.ClickSfx);
         }
 
         public void PlayUpgrade()
         {
-            PlayEffect(presentation == null ? null : presentation.UpgradeSfx);
+            if (!HasClips(sfxClips) || presentation == null)
+                return;
+            PlayEffect(presentation.UpgradeSfx);
         }
 
         public void PlayCrit()
         {
-            PlayEffect(presentation == null ? null : presentation.CritSfx);
+            if (!HasClips(sfxClips) || presentation == null)
+                return;
+            PlayEffect(presentation.CritSfx);
+        }
+
+        void AdoptRealClips()
+        {
+            if (presentation == null)
+                return;
+            if (!HasClips(musicClips))
+                musicClips = Collect(new[] { presentation.IdleTrack, presentation.BossTrack });
+            if (!HasClips(sfxClips))
+                sfxClips = Collect(new[] { presentation.ClickSfx, presentation.UpgradeSfx, presentation.CritSfx });
+        }
+
+        AudioClip[] Collect(string[] ids)
+        {
+            List<AudioClip> found = new List<AudioClip>();
+            if (ids == null)
+                return found.ToArray();
+            for (int index = 0; index < ids.Length; index++)
+            {
+                AudioClip clip = FindReal(ids[index]);
+                if (clip != null)
+                    found.Add(clip);
+            }
+            return found.ToArray();
         }
 
         void PlayTrack(string id)
         {
-            if (music == null || string.IsNullOrEmpty(id) || id == currentTrack)
+            if (!HasClips(musicClips) || music == null || string.IsNullOrEmpty(id) || id == currentTrack)
                 return;
-            currentTrack = id;
-            AudioClip clip = Resolve(id);
+            AudioClip clip = Resolve(id, musicClips);
             if (clip == null)
                 return;
+            currentTrack = id;
+            music.mute = false;
             music.clip = clip;
             music.loop = true;
             music.Play();
@@ -64,16 +114,27 @@ namespace Playtest
 
         void PlayEffect(string id)
         {
-            if (effects == null || string.IsNullOrEmpty(id))
+            if (!HasClips(sfxClips) || effects == null || string.IsNullOrEmpty(id))
                 return;
-            AudioClip clip = Resolve(id);
+            AudioClip clip = Resolve(id, sfxClips);
             if (clip == null)
                 return;
+            effects.mute = false;
             effects.PlayOneShot(clip);
         }
 
-        AudioClip Resolve(string id)
+        AudioClip Resolve(string id, AudioClip[] assigned)
         {
+            AudioClip real = FindReal(id);
+            if (real != null)
+                return real;
+            return Match(id, assigned);
+        }
+
+        AudioClip FindReal(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+                return null;
             if (library != null)
             {
                 AudioClip assigned = library.Find(id);
@@ -92,34 +153,36 @@ namespace Playtest
                 }
             }
 #endif
-            return Placeholder(id);
+            return null;
         }
 
-        AudioClip Placeholder(string id)
+        static AudioClip Match(string id, AudioClip[] assigned)
         {
-            AudioClip cached;
-            if (generated.TryGetValue(id, out cached) && cached != null)
-                return cached;
-            if (presentation == null || presentation.SampleRate < 1)
+            if (assigned == null || string.IsNullOrEmpty(id))
                 return null;
-            float seconds = presentation.Loops(id) ? presentation.LoopSeconds : presentation.SfxSeconds;
-            int length = Mathf.CeilToInt(seconds * presentation.SampleRate);
-            if (length < 1)
-                return null;
-            float[] samples = new float[length];
-            float hz = presentation.ToneHz(id);
-            float amplitude = presentation.Amplitude;
-            for (int index = 0; index < length; index++)
+            string leaf = id;
+            int slash = id.LastIndexOf('/');
+            if (slash >= 0 && slash + 1 < id.Length)
+                leaf = id.Substring(slash + 1);
+            AudioClip fallback = null;
+            int available = 0;
+            for (int index = 0; index < assigned.Length; index++)
             {
-                float envelope = 1f;
-                if (!presentation.Loops(id))
-                    envelope = 1f - (index / (float)length);
-                samples[index] = Mathf.Sin(2f * Mathf.PI * hz * index / presentation.SampleRate) * amplitude * envelope;
+                AudioClip clip = assigned[index];
+                if (clip == null)
+                    continue;
+                available++;
+                if (fallback == null)
+                    fallback = clip;
+                if (clip.name == id || clip.name == leaf)
+                    return clip;
             }
-            AudioClip clip = AudioClip.Create(id, length, 1, presentation.SampleRate, false);
-            clip.SetData(samples, 0);
-            generated[id] = clip;
-            return clip;
+            return available == 1 ? fallback : null;
+        }
+
+        static bool HasClips(AudioClip[] clips)
+        {
+            return clips != null && clips.Length > 0;
         }
     }
 }
