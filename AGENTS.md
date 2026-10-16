@@ -221,11 +221,12 @@ exists, `AudioManager` plays a short generated tone from the frequencies in
 `presentation.json`.
 
 Actors use `Assets/Resources/Animators/PixelActor.controller` with states
-Idle, Attack, Celebrate, and Hurt. Enemies stay placeholder rectangles.
-The hero reads `actors.hero.sprite_path` and loads that PNG from
-StreamingAssets. The same bytes live in `Assets/Sprites/Characters/`.
-A loaded sprite is drawn at its own colors. The actor `color` is only the
-rectangle fallback.
+Idle, Attack, Celebrate, and Hurt. The five classes in `art.classes`
+are skins of the same main character. The chosen id is stored under
+`art.classPrefKey` and does not change production. Enemy, UI, and
+background PNGs are cut from the same sheet into `Assets/Sprites/` and
+copied to StreamingAssets. A loaded sprite is drawn at its own colors.
+The actor `color` is only the rectangle fallback.
 
 TextMeshPro draws the floating numbers. Unity 2022 still needs its own TMP
 package (`com.unity.textmeshpro` in `Packages/manifest.json`). If the font

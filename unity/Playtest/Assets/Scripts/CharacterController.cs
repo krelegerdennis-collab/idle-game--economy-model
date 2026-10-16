@@ -13,13 +13,17 @@ namespace Playtest
         bool returning;
         Color baseColor;
         PresentationConfig presentation;
+        int spriteHeight;
+        float spriteUnits;
 
         public void Bind(PresentationConfig source, ActorVisual visual, RuntimeAnimatorController controller, byte[] png)
         {
             presentation = source;
             idleState = source.IdleState;
             cueSeconds = source.CueSeconds;
-            Sprite picture = FromPng(png, visual, source.PixelsPerUnit);
+            spriteHeight = visual.Height;
+            spriteUnits = source.PixelsPerUnit;
+            Sprite picture = FromPng(png, spriteHeight, spriteUnits);
             baseColor = picture == null ? visual.Color : Color.white;
             sprite = gameObject.AddComponent<SpriteRenderer>();
             sprite.sprite = picture == null ? Rectangle(visual, source.PixelsPerUnit) : picture;
@@ -28,6 +32,16 @@ namespace Playtest
             animator.runtimeAnimatorController = controller;
             transform.position = new Vector3(visual.X, visual.Y, 0f);
             Show(idleState);
+        }
+
+        public void SetPicture(byte[] png)
+        {
+            Sprite picture = FromPng(png, spriteHeight, spriteUnits);
+            if (picture == null || sprite == null)
+                return;
+            sprite.sprite = picture;
+            baseColor = Color.white;
+            Show(current);
         }
 
         public void Cue(string state)
@@ -63,16 +77,16 @@ namespace Playtest
             sprite.color = hurt ? presentation.Critical : baseColor;
         }
 
-        static Sprite FromPng(byte[] png, ActorVisual visual, float pixelsPerUnit)
+        static Sprite FromPng(byte[] png, int height, float pixelsPerUnit)
         {
-            if (png == null || png.Length == 0 || visual.Height < 1 || pixelsPerUnit <= 0f)
+            if (png == null || png.Length == 0 || height < 1 || pixelsPerUnit <= 0f)
                 return null;
             Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
             if (!texture.LoadImage(png))
                 return null;
             texture.filterMode = FilterMode.Point;
             texture.wrapMode = TextureWrapMode.Clamp;
-            float worldHeight = visual.Height / pixelsPerUnit;
+            float worldHeight = height / pixelsPerUnit;
             float units = texture.height / worldHeight;
             return Sprite.Create(
                 texture,

@@ -7,7 +7,7 @@ namespace Playtest
     {
         readonly List<CharacterController> actors = new List<CharacterController>();
 
-        public void Bind(PresentationConfig presentation, RuntimeAnimatorController controller)
+        public void Bind(PresentationConfig presentation, RuntimeAnimatorController controller, Dictionary<string, byte[]> pictures)
         {
             if (presentation.Enemies == null)
                 return;
@@ -17,7 +17,10 @@ namespace Playtest
                 GameObject actor = new GameObject(visual.Id);
                 actor.transform.SetParent(transform, false);
                 CharacterController character = actor.AddComponent<CharacterController>();
-                character.Bind(presentation, visual, controller, null);
+                byte[] png = null;
+                if (pictures != null && !string.IsNullOrEmpty(visual.SpritePath))
+                    pictures.TryGetValue(visual.SpritePath, out png);
+                character.Bind(presentation, visual, controller, png);
                 actors.Add(character);
             }
         }

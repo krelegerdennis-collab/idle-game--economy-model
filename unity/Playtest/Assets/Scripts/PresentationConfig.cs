@@ -16,6 +16,13 @@ namespace Playtest
         public string SpritePath;
     }
 
+    public sealed class ClassChoice
+    {
+        public string Id;
+        public string Name;
+        public string SpritePath;
+    }
+
     public sealed class PresentationConfig
     {
         public const int SupportedSchemaVersion = 1;
@@ -39,6 +46,7 @@ namespace Playtest
         public float CurrencyMinHeight;
         public float BodyMinHeight;
         public float ButtonMinHeight;
+        public float ClassButton;
         public float BarHeight;
 
         public float ReferenceWidth;
@@ -103,6 +111,14 @@ namespace Playtest
         public string PremiumLabel;
         public string SeasonLabel;
 
+        public string StageBackground;
+        public string CurrencyIcon;
+        public string InsightIcon;
+        public string PrestigeIcon;
+        public string ClassPrefKey;
+        public string DefaultClass;
+        public ClassChoice[] Classes;
+
         public Color IconColor(int index)
         {
             if (IconPalette == null || IconPalette.Length == 0)
@@ -141,6 +157,46 @@ namespace Playtest
             return id == IdleTrack || id == BossTrack;
         }
 
+        public ClassChoice FindClass(string id)
+        {
+            if (Classes == null || string.IsNullOrEmpty(id))
+                return null;
+            for (int index = 0; index < Classes.Length; index++)
+            {
+                if (Classes[index].Id == id)
+                    return Classes[index];
+            }
+            return null;
+        }
+
+        public List<string> PicturePaths()
+        {
+            List<string> paths = new List<string>();
+            AddPath(paths, Hero == null ? null : Hero.SpritePath);
+            AddPath(paths, StageBackground);
+            AddPath(paths, CurrencyIcon);
+            AddPath(paths, InsightIcon);
+            AddPath(paths, PrestigeIcon);
+            if (Classes != null)
+            {
+                for (int index = 0; index < Classes.Length; index++)
+                    AddPath(paths, Classes[index].SpritePath);
+            }
+            if (Enemies != null)
+            {
+                for (int index = 0; index < Enemies.Length; index++)
+                    AddPath(paths, Enemies[index].SpritePath);
+            }
+            return paths;
+        }
+
+        static void AddPath(List<string> paths, string path)
+        {
+            if (string.IsNullOrEmpty(path) || paths.Contains(path))
+                return;
+            paths.Add(path);
+        }
+
         public static PresentationConfig Parse(string json)
         {
             JsonValue root = JsonMini.Parse(json);
@@ -154,6 +210,7 @@ namespace Playtest
             JsonValue audio = Required(root, "audio", "presentation.json");
             JsonValue tone = Required(audio, "placeholder", "presentation.json");
             JsonValue actors = Required(root, "actors", "presentation.json");
+            JsonValue art = Required(root, "art", "presentation.json");
             JsonValue copy = Required(root, "copy", "presentation.json");
             PresentationConfig config = new PresentationConfig
             {
@@ -175,6 +232,7 @@ namespace Playtest
                 CurrencyMinHeight = RequiredFloat(type, "currencyMinHeight", "presentation.json"),
                 BodyMinHeight = RequiredFloat(type, "bodyMinHeight", "presentation.json"),
                 ButtonMinHeight = RequiredFloat(type, "buttonMinHeight", "presentation.json"),
+                ClassButton = RequiredFloat(type, "classButton", "presentation.json"),
                 BarHeight = RequiredFloat(type, "barHeight", "presentation.json"),
                 ReferenceWidth = RequiredFloat(layout, "referenceWidth", "presentation.json"),
                 ReferenceHeight = RequiredFloat(layout, "referenceHeight", "presentation.json"),
@@ -233,12 +291,38 @@ namespace Playtest
                 PeakLabel = RequiredString(copy, "peak", "presentation.json"),
                 PremiumLabel = RequiredString(copy, "premium", "presentation.json"),
                 SeasonLabel = RequiredString(copy, "season", "presentation.json"),
+                StageBackground = RequiredString(art, "stageBackground", "presentation.json"),
+                CurrencyIcon = RequiredString(art, "currencyIcon", "presentation.json"),
+                InsightIcon = RequiredString(art, "insightIcon", "presentation.json"),
+                PrestigeIcon = RequiredString(art, "prestigeIcon", "presentation.json"),
+                ClassPrefKey = RequiredString(art, "classPrefKey", "presentation.json"),
+                DefaultClass = RequiredString(art, "defaultClass", "presentation.json"),
+                Classes = ReadClasses(art),
             };
             if (config.CurrencySize < 48)
                 throw new InvalidOperationException("presentation.json currencySize must be at least 48.");
             if (config.GeneratorSize < 24)
                 throw new InvalidOperationException("presentation.json generatorSize must be at least 24.");
             return config;
+        }
+
+        static ClassChoice[] ReadClasses(JsonValue art)
+        {
+            JsonValue array = Required(art, "classes", "presentation.json");
+            if (array.Type != JsonValue.Kind.Array || array.Items.Count == 0)
+                throw new InvalidOperationException("presentation.json art.classes is empty");
+            ClassChoice[] classes = new ClassChoice[array.Items.Count];
+            for (int index = 0; index < array.Items.Count; index++)
+            {
+                JsonValue item = array.Items[index];
+                classes[index] = new ClassChoice
+                {
+                    Id = RequiredString(item, "id", "presentation.json"),
+                    Name = RequiredString(item, "name", "presentation.json"),
+                    SpritePath = RequiredString(item, "sprite_path", "presentation.json"),
+                };
+            }
+            return classes;
         }
 
         static Color[] ReadPalette(JsonValue theme)

@@ -56,16 +56,24 @@ def test_client_reads_theme_from_data_not_from_literals():
     assert "hat_placeholder" not in blob
 
 
-def test_hero_sprite_is_a_transparent_png():
+def test_class_sprites_are_transparent_pngs():
     bundle = load_bundle()
-    sprite_path = bundle["presentation"]["actors"]["hero"]["sprite_path"]
-    assert sprite_path == "Sprites/Characters/hero.png"
-    art = ROOT / "unity" / "Playtest" / "Assets" / sprite_path
-    streaming = STREAMING / sprite_path
-    assert art.read_bytes() == streaming.read_bytes()
-    payload = art.read_bytes()
-    assert payload.startswith(b"\x89PNG\r\n\x1a\n")
-    assert _png_corner_is_clear(payload)
+    classes = bundle["presentation"]["art"]["classes"]
+    assert [item["id"] for item in classes] == ["swordsman", "mage", "summoner", "archer", "rogue"]
+    assert bundle["presentation"]["art"]["defaultClass"] == "swordsman"
+    paths = [item["sprite_path"] for item in classes]
+    paths.extend(
+        enemy["sprite_path"] for enemy in bundle["presentation"]["actors"]["enemies"]
+    )
+    paths.append(bundle["presentation"]["art"]["stageBackground"])
+    for sprite_path in paths:
+        art = ROOT / "unity" / "Playtest" / "Assets" / sprite_path
+        streaming = STREAMING / sprite_path
+        assert art.read_bytes() == streaming.read_bytes()
+        payload = art.read_bytes()
+        assert payload.startswith(b"\x89PNG\r\n\x1a\n")
+        if "/Backgrounds/" not in sprite_path:
+            assert _png_corner_is_clear(payload)
 
 
 def _png_corner_is_clear(payload: bytes) -> bool:
@@ -88,9 +96,44 @@ def _png_corner_is_clear(payload: bytes) -> bool:
         elif kind == b"IEND":
             break
     rows = zlib.decompress(raw)
-    assert rows[0] == 0
-    pixel = rows[1:5]
-    return pixel == b"\x00\x00\x00\x00"
+    stride = width * 4
+    previous = bytearray(stride)
+    cursor = 0
+    corner = None
+    for _ in range(height):
+        filter_type = rows[cursor]
+        data = bytearray(rows[cursor + 1:cursor + 1 + stride])
+        for index in range(stride):
+            left = data[index - 4] if index >= 4 else 0
+            up = previous[index]
+            up_left = previous[index - 4] if index >= 4 else 0
+            if filter_type == 1:
+                data[index] = (data[index] + left) & 255
+            elif filter_type == 2:
+                data[index] = (data[index] + up) & 255
+            elif filter_type == 3:
+                data[index] = (data[index] + ((left + up) // 2)) & 255
+            elif filter_type == 4:
+                data[index] = (data[index] + _paeth(left, up, up_left)) & 255
+            elif filter_type != 0:
+                raise AssertionError("png filter " + str(filter_type))
+        if corner is None:
+            corner = bytes(data[:4])
+        previous = data
+        cursor += 1 + stride
+    return corner == b"\x00\x00\x00\x00"
+
+
+def _paeth(left: int, up: int, up_left: int) -> int:
+    estimate = left + up - up_left
+    distance_left = abs(estimate - left)
+    distance_up = abs(estimate - up)
+    distance_up_left = abs(estimate - up_left)
+    if distance_left <= distance_up and distance_left <= distance_up_left:
+        return left
+    if distance_up <= distance_up_left:
+        return up
+    return up_left
 
 
 def test_bad_cosmetic_slot_is_rejected(tmp_path: Path):

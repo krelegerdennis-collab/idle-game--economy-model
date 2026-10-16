@@ -81,7 +81,7 @@ def _validate_presentation(payload: dict) -> None:
         raise ValueError("presentation.json currencySize must be at least 48")
     if _number(type_scale, "generatorSize") < 24:
         raise ValueError("presentation.json generatorSize must be at least 24")
-    for key in ("bodySize", "currencyMinHeight", "bodyMinHeight", "buttonMinHeight", "barHeight"):
+    for key in ("bodySize", "currencyMinHeight", "bodyMinHeight", "buttonMinHeight", "classButton", "barHeight"):
         _positive(type_scale, key)
 
     layout = _object(payload, "layout")
@@ -175,6 +175,8 @@ def _validate_presentation(payload: dict) -> None:
         if isinstance(scale, bool) or not isinstance(scale, (int, float)) or scale <= 0:
             raise ValueError(f"presentation.json pose {state} scale must be positive")
 
+    _validate_art(payload.get("art"), actors)
+
     copy = _object(payload, "copy")
     for key in ("time", "contract", "prestige", "relic", "download", "dip", "peak", "premium", "season"):
         text = copy.get(key)
@@ -230,6 +232,42 @@ def _validate_season(payload: dict, cosmetics: dict) -> None:
     tier = payload.get("price_tier")
     if not isinstance(tier, str) or not tier:
         raise ValueError("season_pass.json price_tier must be text")
+
+
+def _validate_art(art: object, actors: dict) -> None:
+    if not isinstance(art, dict):
+        raise ValueError("presentation.json art must be an object")
+    for key in ("stageBackground", "currencyIcon", "insightIcon", "prestigeIcon"):
+        _sprite_path(art.get(key), f"art.{key}")
+    pref = art.get("classPrefKey")
+    if not isinstance(pref, str) or not pref:
+        raise ValueError("presentation.json art.classPrefKey must be text")
+    classes = art.get("classes")
+    if not isinstance(classes, list) or not classes:
+        raise ValueError("presentation.json art.classes must list the playable classes")
+    ids: set[str] = set()
+    for item in classes:
+        if not isinstance(item, dict):
+            raise ValueError("presentation.json class must be an object")
+        class_id = item.get("id")
+        name = item.get("name")
+        if not isinstance(class_id, str) or not class_id or class_id in ids:
+            raise ValueError("presentation.json class id must be unique")
+        ids.add(class_id)
+        if not isinstance(name, str) or not name:
+            raise ValueError("presentation.json class name is missing")
+        _sprite_path(item.get("sprite_path"), "class.sprite_path")
+    default = art.get("defaultClass")
+    if default not in ids:
+        raise ValueError("presentation.json art.defaultClass is not a class id")
+    hero_path = actors.get("hero", {}).get("sprite_path")
+    if hero_path != next(item["sprite_path"] for item in classes if item["id"] == default):
+        raise ValueError("presentation.json hero sprite_path must match the default class")
+
+
+def _sprite_path(value: object, label: str) -> None:
+    if not isinstance(value, str) or not value.startswith("Sprites/") or not value.endswith(".png"):
+        raise ValueError(f"presentation.json {label} must be a Sprites PNG")
 
 
 def _actor(value: object, label: str) -> None:

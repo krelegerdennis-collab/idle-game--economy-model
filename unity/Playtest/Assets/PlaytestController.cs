@@ -59,7 +59,10 @@ namespace Playtest
         DateTime? backgroundAt;
         double lastTick;
         string savePath;
-        byte[] heroSprite;
+        readonly Dictionary<string, byte[]> pictures = new Dictionary<string, byte[]>();
+        readonly Dictionary<string, Outline> classOutlines = new Dictionary<string, Outline>();
+        string selectedClass;
+        Text classNameText;
 
         void Awake()
         {
@@ -91,18 +94,25 @@ namespace Playtest
             yield return ReadStreaming("season_pass.json", text => season = text);
             if (season == null)
                 yield break;
-            string heroPath = null;
+            PresentationConfig parsed = null;
             try
             {
-                heroPath = PresentationConfig.Parse(theme).Hero.SpritePath;
+                parsed = PresentationConfig.Parse(theme);
             }
             catch (Exception exception)
             {
                 ShowError(exception.Message);
                 yield break;
             }
-            if (!string.IsNullOrEmpty(heroPath))
-                yield return ReadStreamingBytes(heroPath, bytes => heroSprite = bytes);
+            List<string> paths = parsed.PicturePaths();
+            for (int index = 0; index < paths.Count; index++)
+            {
+                string picturePath = paths[index];
+                byte[] data = null;
+                yield return ReadStreamingBytes(picturePath, bytes => data = bytes);
+                if (data != null && data.Length > 0)
+                    pictures[picturePath] = data;
+            }
             try
             {
                 Boot(economy, theme, cosmetic, season);
@@ -185,6 +195,13 @@ namespace Playtest
                 view.backgroundColor = presentation.Background;
             audio = ScriptableObject.CreateInstance<AudioManager>();
             audio.Open(presentation, gameObject);
+            selectedClass = presentation.DefaultClass;
+            if (!string.IsNullOrEmpty(presentation.ClassPrefKey) && PlayerPrefs.HasKey(presentation.ClassPrefKey))
+            {
+                string savedClass = PlayerPrefs.GetString(presentation.ClassPrefKey);
+                if (presentation.FindClass(savedClass) != null)
+                    selectedClass = savedClass;
+            }
             RectTransform shakeRoot = BuildUi();
             feedback = gameObject.AddComponent<PresentationFeedback>();
             feedback.Bind(presentation, shakeRoot, view, tmpFont, font);
@@ -447,10 +464,11 @@ namespace Playtest
             RuntimeAnimatorController controller = Resources.Load<RuntimeAnimatorController>(presentation.AnimatorResource);
             GameObject heroObject = new GameObject(presentation.Hero.Id);
             hero = heroObject.AddComponent<CharacterController>();
-            hero.Bind(presentation, presentation.Hero, controller, heroSprite);
+            byte[] heroPng = Picture(SelectedSpritePath());
+            hero.Bind(presentation, presentation.Hero, controller, heroPng);
             GameObject enemyObject = new GameObject("Enemies");
             enemies = enemyObject.AddComponent<EnemyController>();
-            enemies.Bind(presentation, controller);
+            enemies.Bind(presentation, controller, pictures);
         }
 
         void Save()
@@ -581,10 +599,25 @@ namespace Playtest
             LayoutElement stageElement = stage.GetComponent<LayoutElement>();
             stageElement.preferredHeight = presentation.ReferenceHeight * presentation.StageFraction;
             stageElement.minHeight = stageElement.preferredHeight;
+            byte[] backdrop = Picture(presentation.StageBackground);
+            if (backdrop != null)
+            {
+                Image background = stage.AddComponent<Image>();
+                background.sprite = UiSprite(backdrop);
+                background.preserveAspect = true;
+                background.color = Color.white;
+                background.raycastTarget = false;
+            }
 
-            currencyText = MakeText(shakeRoot, presentation.CurrencySize, presentation.CurrencyMinHeight, presentation.Currency);
+            BuildClassRow(shakeRoot);
+            classNameText = MakeText(shakeRoot, presentation.BodySize, presentation.BodyMinHeight, presentation.Text);
+            ClassChoice selected = presentation.FindClass(selectedClass);
+            classNameText.text = selected == null ? "" : selected.Name;
+            classNameText.alignment = TextAnchor.MiddleCenter;
+
+            currencyText = MakeIconRow(shakeRoot, presentation.CurrencyIcon, presentation.CurrencySize, presentation.CurrencyMinHeight, presentation.Currency);
             timeText = MakeText(shakeRoot, presentation.BodySize, presentation.BodyMinHeight, presentation.Text);
-            insightText = MakeText(shakeRoot, presentation.BodySize, presentation.BodyMinHeight, presentation.Text);
+            insightText = MakeIconRow(shakeRoot, presentation.InsightIcon, presentation.BodySize, presentation.BodyMinHeight, presentation.Text);
             if (Browser())
             {
                 LabeledButton download = MakeButton(shakeRoot, presentation.ButtonMinHeight, () => exportLogs.ExportNow());
@@ -653,6 +686,16 @@ namespace Playtest
             }
 
             prestigeButton = MakeButton(shakeRoot, presentation.ButtonMinHeight, Prestige);
+            byte[] prestigeIcon = Picture(presentation.PrestigeIcon);
+            if (prestigeIcon != null)
+            {
+                prestigeButton.Button.image.sprite = UiSprite(prestigeIcon);
+                prestigeButton.Button.image.color = Color.white;
+                ColorBlock colors = prestigeButton.Button.colors;
+                colors.normalColor = Color.white;
+                colors.selectedColor = Color.white;
+                prestigeButton.Button.colors = colors;
+            }
             prestigeButton.Button.gameObject.SetActive(false);
             foreach (BranchConfig branch in config.Branches)
             {
@@ -662,6 +705,147 @@ namespace Playtest
                 contractButtons[branch.Id] = button;
             }
             return shakeRoot;
+        }
+
+        void BuildClassRow(Transform parent)
+        {
+            if (presentation.Classes == null || presentation.Classes.Length == 0)
+                return;
+            GameObject row = new GameObject("Classes", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+            row.transform.SetParent(parent, false);
+            LayoutElement rowElement = row.GetComponent<LayoutElement>();
+            rowElement.minHeight = presentation.ClassButton;
+            rowElement.preferredHeight = presentation.ClassButton;
+            HorizontalLayoutGroup group = row.GetComponent<HorizontalLayoutGroup>();
+            group.spacing = presentation.Spacing;
+            group.childAlignment = TextAnchor.MiddleCenter;
+            group.childControlWidth = true;
+            group.childControlHeight = true;
+            group.childForceExpandWidth = true;
+            group.childForceExpandHeight = true;
+            for (int index = 0; index < presentation.Classes.Length; index++)
+            {
+                ClassChoice choice = presentation.Classes[index];
+                string classId = choice.Id;
+                GameObject item = new GameObject(choice.Id, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement), typeof(Outline));
+                item.transform.SetParent(row.transform, false);
+                Image image = item.GetComponent<Image>();
+                byte[] png = Picture(choice.SpritePath);
+                if (png != null)
+                    image.sprite = UiSprite(png);
+                image.preserveAspect = true;
+                image.color = Color.white;
+                LayoutElement element = item.GetComponent<LayoutElement>();
+                element.minHeight = presentation.ClassButton;
+                element.preferredHeight = presentation.ClassButton;
+                Outline outline = item.GetComponent<Outline>();
+                outline.effectDistance = new Vector2(presentation.GlowDistance, presentation.GlowDistance);
+                classOutlines[choice.Id] = outline;
+                Button button = item.GetComponent<Button>();
+                button.onClick.AddListener(() =>
+                {
+                    if (audio != null)
+                        audio.PlayClick();
+                    SelectClass(classId);
+                });
+            }
+            RefreshClassChrome();
+        }
+
+        void SelectClass(string id)
+        {
+            if (presentation.FindClass(id) == null || id == selectedClass)
+                return;
+            selectedClass = id;
+            if (!string.IsNullOrEmpty(presentation.ClassPrefKey))
+            {
+                PlayerPrefs.SetString(presentation.ClassPrefKey, id);
+                PlayerPrefs.Save();
+            }
+            ClassChoice choice = presentation.FindClass(id);
+            if (classNameText != null && choice != null)
+                classNameText.text = choice.Name;
+            if (hero != null)
+                hero.SetPicture(Picture(choice == null ? null : choice.SpritePath));
+            RefreshClassChrome();
+        }
+
+        void RefreshClassChrome()
+        {
+            foreach (KeyValuePair<string, Outline> pair in classOutlines)
+            {
+                Color color = pair.Key == selectedClass ? presentation.Currency : presentation.BarTrack;
+                color.a = presentation.GlowAlpha;
+                pair.Value.effectColor = color;
+            }
+        }
+
+        string SelectedSpritePath()
+        {
+            ClassChoice choice = presentation.FindClass(selectedClass);
+            if (choice != null)
+                return choice.SpritePath;
+            return presentation.Hero == null ? null : presentation.Hero.SpritePath;
+        }
+
+        byte[] Picture(string path)
+        {
+            byte[] data;
+            if (string.IsNullOrEmpty(path) || !pictures.TryGetValue(path, out data))
+                return null;
+            return data;
+        }
+
+        Text MakeIconRow(Transform parent, string iconPath, int size, float height, Color color)
+        {
+            GameObject row = new GameObject("IconRow", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+            row.transform.SetParent(parent, false);
+            LayoutElement rowElement = row.GetComponent<LayoutElement>();
+            rowElement.minHeight = height;
+            rowElement.preferredHeight = height;
+            HorizontalLayoutGroup group = row.GetComponent<HorizontalLayoutGroup>();
+            group.spacing = presentation.Spacing;
+            group.childAlignment = TextAnchor.MiddleLeft;
+            group.childControlWidth = true;
+            group.childControlHeight = true;
+            group.childForceExpandWidth = false;
+            group.childForceExpandHeight = true;
+            byte[] png = Picture(iconPath);
+            if (png != null)
+            {
+                GameObject icon = new GameObject("Icon", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+                icon.transform.SetParent(row.transform, false);
+                Image image = icon.GetComponent<Image>();
+                image.sprite = UiSprite(png);
+                image.preserveAspect = true;
+                image.color = Color.white;
+                image.raycastTarget = false;
+                LayoutElement iconElement = icon.GetComponent<LayoutElement>();
+                iconElement.minWidth = height;
+                iconElement.preferredWidth = height;
+                iconElement.minHeight = height;
+            }
+            Text text = MakeText(row, size, height, color);
+            LayoutElement textElement = text.GetComponent<LayoutElement>();
+            textElement.minWidth = presentation.ReferenceWidth * 0.5f;
+            textElement.flexibleWidth = 1f;
+            return text;
+        }
+
+        Sprite UiSprite(byte[] png)
+        {
+            if (png == null || png.Length == 0)
+                return null;
+            Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            if (!texture.LoadImage(png))
+                return null;
+            texture.filterMode = FilterMode.Point;
+            texture.wrapMode = TextureWrapMode.Clamp;
+            return Sprite.Create(
+                texture,
+                new Rect(0f, 0f, texture.width, texture.height),
+                new Vector2(0.5f, 0.5f),
+                presentation.PixelsPerUnit);
         }
 
         void ShowError(string message)
