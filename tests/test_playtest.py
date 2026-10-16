@@ -80,6 +80,11 @@ def test_client_has_no_hardcoded_balance_literals():
     assert "ExternalEval" not in (CS_ROOT / "ExportLogs.cs").read_text(encoding="utf-8")
 
 
+def test_player_settings_enable_both_input_backends():
+    settings = (ROOT / "unity" / "Playtest" / "ProjectSettings" / "ProjectSettings.asset").read_text(encoding="utf-8")
+    assert "activeInputHandler: 2" in settings
+
+
 def test_simulation_reference_reads_the_frozen_baseline():
     baseline = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
     metrics = simulation_reference(baseline)
