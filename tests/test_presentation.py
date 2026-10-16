@@ -56,6 +56,43 @@ def test_client_reads_theme_from_data_not_from_literals():
     assert "hat_placeholder" not in blob
 
 
+def test_hero_sprite_is_a_transparent_png():
+    bundle = load_bundle()
+    sprite_path = bundle["presentation"]["actors"]["hero"]["sprite_path"]
+    assert sprite_path == "Sprites/Characters/hero.png"
+    art = ROOT / "unity" / "Playtest" / "Assets" / sprite_path
+    streaming = STREAMING / sprite_path
+    assert art.read_bytes() == streaming.read_bytes()
+    payload = art.read_bytes()
+    assert payload.startswith(b"\x89PNG\r\n\x1a\n")
+    assert _png_corner_is_clear(payload)
+
+
+def _png_corner_is_clear(payload: bytes) -> bool:
+    import struct
+    import zlib
+
+    pos = 8
+    width = height = None
+    raw = b""
+    while pos < len(payload):
+        length = struct.unpack(">I", payload[pos:pos + 4])[0]
+        kind = payload[pos + 4:pos + 8]
+        chunk = payload[pos + 8:pos + 8 + length]
+        pos += 12 + length
+        if kind == b"IHDR":
+            width, height, bit_depth, color_type = struct.unpack(">IIBB", chunk[:10])
+            assert bit_depth == 8 and color_type == 6
+        elif kind == b"IDAT":
+            raw += chunk
+        elif kind == b"IEND":
+            break
+    rows = zlib.decompress(raw)
+    assert rows[0] == 0
+    pixel = rows[1:5]
+    return pixel == b"\x00\x00\x00\x00"
+
+
 def test_bad_cosmetic_slot_is_rejected(tmp_path: Path):
     directory = tmp_path / "data"
     directory.mkdir()

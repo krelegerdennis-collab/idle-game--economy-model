@@ -221,8 +221,11 @@ exists, `AudioManager` plays a short generated tone from the frequencies in
 `presentation.json`.
 
 Actors use `Assets/Resources/Animators/PixelActor.controller` with states
-Idle, Attack, Celebrate, and Hurt. Placeholder rectangles are built at
-runtime. Replace the `SpriteRenderer` sprite when the PNG arrives.
+Idle, Attack, Celebrate, and Hurt. Enemies stay placeholder rectangles.
+The hero reads `actors.hero.sprite_path` and loads that PNG from
+StreamingAssets. The same bytes live in `Assets/Sprites/Characters/`.
+A loaded sprite is drawn at its own colors. The actor `color` is only the
+rectangle fallback.
 
 TextMeshPro draws the floating numbers. Unity 2022 still needs its own TMP
 package (`com.unity.textmeshpro` in `Packages/manifest.json`). If the font

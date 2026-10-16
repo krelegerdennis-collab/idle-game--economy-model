@@ -83,7 +83,8 @@
       "width": 96,
       "height": 128,
       "x": -1.6,
-      "y": 3.6
+      "y": 3.9,
+      "sprite_path": "Sprites/Characters/hero.png"
     },
     "enemies": [
       {"id": "slime", "color": "#7CFF6B", "width": 80, "height": 64, "x": -0.2, "y": 3.4},

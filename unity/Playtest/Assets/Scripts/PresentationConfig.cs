@@ -13,6 +13,7 @@ namespace Playtest
         public int Height;
         public float X;
         public float Y;
+        public string SpritePath;
     }
 
     public sealed class PresentationConfig
@@ -300,6 +301,7 @@ namespace Playtest
                 Height = RequiredInt(item, "height", "presentation.json"),
                 X = RequiredFloat(item, "x", "presentation.json"),
                 Y = RequiredFloat(item, "y", "presentation.json"),
+                SpritePath = item.Has("sprite_path") ? RequiredString(item, "sprite_path", "presentation.json") : null,
             };
         }
 

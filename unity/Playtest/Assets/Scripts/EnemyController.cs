@@ -17,7 +17,7 @@ namespace Playtest
                 GameObject actor = new GameObject(visual.Id);
                 actor.transform.SetParent(transform, false);
                 CharacterController character = actor.AddComponent<CharacterController>();
-                character.Bind(presentation, visual, controller);
+                character.Bind(presentation, visual, controller, null);
                 actors.Add(character);
             }
         }

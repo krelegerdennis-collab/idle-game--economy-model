@@ -246,6 +246,11 @@ def _actor(value: object, label: str) -> None:
         coordinate = value.get(key)
         if isinstance(coordinate, bool) or not isinstance(coordinate, (int, float)):
             raise ValueError(f"presentation.json {label}.{key} must be a number")
+    sprite = value.get("sprite_path")
+    if sprite is None:
+        return
+    if not isinstance(sprite, str) or not sprite.startswith("Sprites/") or not sprite.endswith(".png"):
+        raise ValueError(f"presentation.json {label}.sprite_path must be a Sprites PNG")
 
 
 def _object(payload: dict, key: str) -> dict:

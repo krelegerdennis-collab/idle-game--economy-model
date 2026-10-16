@@ -59,6 +59,7 @@ namespace Playtest
         DateTime? backgroundAt;
         double lastTick;
         string savePath;
+        byte[] heroSprite;
 
         void Awake()
         {
@@ -90,6 +91,18 @@ namespace Playtest
             yield return ReadStreaming("season_pass.json", text => season = text);
             if (season == null)
                 yield break;
+            string heroPath = null;
+            try
+            {
+                heroPath = PresentationConfig.Parse(theme).Hero.SpritePath;
+            }
+            catch (Exception exception)
+            {
+                ShowError(exception.Message);
+                yield break;
+            }
+            if (!string.IsNullOrEmpty(heroPath))
+                yield return ReadStreamingBytes(heroPath, bytes => heroSprite = bytes);
             try
             {
                 Boot(economy, theme, cosmetic, season);
@@ -124,6 +137,22 @@ namespace Playtest
                 yield break;
             }
             sink(File.ReadAllText(path));
+        }
+
+        IEnumerator ReadStreamingBytes(string fileName, Action<byte[]> sink)
+        {
+            string path = Path.Combine(Application.streamingAssetsPath, fileName);
+            if (path.Contains("://"))
+            {
+                UnityWebRequest request = UnityWebRequest.Get(path);
+                yield return request.SendWebRequest();
+                if (request.result == UnityWebRequest.Result.Success)
+                    sink(request.downloadHandler.data);
+                request.Dispose();
+                yield break;
+            }
+            if (File.Exists(path))
+                sink(File.ReadAllBytes(path));
         }
 
         void Boot(string economy, string theme, string cosmetic, string season)
@@ -418,7 +447,7 @@ namespace Playtest
             RuntimeAnimatorController controller = Resources.Load<RuntimeAnimatorController>(presentation.AnimatorResource);
             GameObject heroObject = new GameObject(presentation.Hero.Id);
             hero = heroObject.AddComponent<CharacterController>();
-            hero.Bind(presentation, presentation.Hero, controller);
+            hero.Bind(presentation, presentation.Hero, controller, heroSprite);
             GameObject enemyObject = new GameObject("Enemies");
             enemies = enemyObject.AddComponent<EnemyController>();
             enemies.Bind(presentation, controller);
