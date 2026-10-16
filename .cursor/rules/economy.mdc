@@ -21,3 +21,7 @@ alwaysApply: true
   The playtest in `unity/Playtest` reads `exports/unity/economy_config.json`.
   Do not retune `data/` to make that client or a later cohort match the sim.
   A WebGL build is a smoke test. Do not compare its D1/D7/D30 to baseline.json.
+  `data/presentation.json`, `data/cosmetics.json`, and `data/season_pass.json`
+  are the playtest theme and cosmetic schema. They are outside the frozen
+  curve. Do not let them change production, and do not regenerate baseline.json
+  because they exist.

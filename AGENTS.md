@@ -29,8 +29,11 @@ The game engine comes later. The math comes first.
 - Analytics events: session_begin, upgrade_purchase, prestige_trigger.
 
 ## Rules for the agent
-- Do not propose art, narrative, or UI work. This phase is economy-only.
-- Do not hardcode values in code. All values live in /data/.
+- Do not retune economy numbers. The generator curve, prestige, and
+  `exports/runs/baseline.json` stay frozen.
+- Do not hardcode values in code. Economy numbers live in the economy
+  files under /data/. Playtest colors, type, audio ids, and cosmetics live
+  in `data/presentation.json`, `data/cosmetics.json`, and `data/season_pass.json`.
 - Every formula change must include a before/after simulation run.
 - If a change would break a retention constraint, stop and explain why.
 
@@ -105,8 +108,12 @@ regenerate `exports/runs/baseline.json` to chase a cohort.
 `Assets/Playtest.unity`. The scene has a camera and one behaviour. Counters
 and buttons are built at runtime from
 `Assets/StreamingAssets/economy_config.json`. That file must stay
-byte-identical to `exports/unity/economy_config.json`. There is no art,
-narrative, or menu, and no analytics SDK.
+byte-identical to `exports/unity/economy_config.json`. The same folder
+also carries `presentation.json`, `cosmetics.json`, and `season_pass.json`,
+each byte-identical to the file of the same name in `data/`. Placeholder
+rectangles stand in for sprites. There is no finished art, narrative, or
+menu, and no analytics SDK. Cosmetics and the season pass do not change
+production, and the client does not sell them.
 
 The client reads the single-purchase curve in the export. A branch with a
 `structure` field stops the client. The prestige button appears when a
@@ -183,3 +190,48 @@ secrets once, then re-run the workflow:
    settings, do it once in the repository settings.
 
 Do not retune `data/` because a WebGL build failed.
+
+## Art and audio pipeline
+
+The playtest theme is data, not a retune of the economy. `data/presentation.json`
+holds colors, type sizes, feedback, audio ids, and the placeholder actors.
+`data/cosmetics.json` and `data/season_pass.json` are the cosmetic schema.
+`sim/run_simulation.py` skips those three files, and `relics.json`, when it
+hashes the frozen curve. Do not regenerate `exports/runs/baseline.json`
+because a sprite or a track was added. Do not grant currency, insight, or
+prestige points from a cosmetic, a season reward, or `is_premium`.
+
+`price_tier` is a label. This client has no store and no in-app purchase.
+Premium rows are text only.
+
+Drop finished files in these folders. The code reads ids from the JSON, so
+a new file does not need a code change:
+
+- Sprites: `unity/Playtest/Assets/Sprites/Characters/`,
+  `unity/Playtest/Assets/Sprites/Enemies/`,
+  `unity/Playtest/Assets/Sprites/UI/`. PNG with transparency.
+  `sprite_path` in `data/cosmetics.json` is the path under `Assets/Sprites/`.
+- Music: `unity/Playtest/Assets/Audio/Music/`. MP3.
+- Effects: `unity/Playtest/Assets/Audio/SFX/`. WAV.
+
+The audio id in `presentation.json` is the path without `Assets/` and
+without the extension, for example `Audio/Music/idle`. An editor import
+writes the clip onto `Assets/Resources/AudioLibrary.asset`. Until that clip
+exists, `AudioManager` plays a short generated tone from the frequencies in
+`presentation.json`.
+
+Actors use `Assets/Resources/Animators/PixelActor.controller` with states
+Idle, Attack, Celebrate, and Hurt. Placeholder rectangles are built at
+runtime. Replace the `SpriteRenderer` sprite when the PNG arrives.
+
+TextMeshPro draws the floating numbers. Unity 2022 still needs its own TMP
+package (`com.unity.textmeshpro` in `Packages/manifest.json`). If the font
+asset cannot be created, those numbers fall back to the built-in UI font.
+The economy counters stay on that built-in font either way.
+
+There is no combat crit in the frozen economy. The critical color marks a
+purchase that costs at least `largePurchaseCostShare` of the wallet, or a
+generator purchase that lands on an owned-copy milestone from the export.
+Confetti plays on that milestone and on prestige. The boss track starts
+once lifetime currency reaches `bossApproachRatio` of the lifetime the
+exported prestige formula needs for `minPointsToPrestige`.

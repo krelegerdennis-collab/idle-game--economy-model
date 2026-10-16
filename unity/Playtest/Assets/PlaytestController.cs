@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Networking;
@@ -20,20 +21,30 @@ namespace Playtest
         {
             public Button Button;
             public Text Label;
+            public RectTransform Rect;
         }
 
         sealed class GeneratorRow
         {
             public GeneratorConfig Generator;
             public Text Owned;
+            public Image BarFill;
             public LabeledButton Buy;
         }
 
         EconomyConfig config;
+        PresentationConfig presentation;
+        CosmeticsConfig cosmetics;
+        SeasonPassConfig seasonPass;
         PlaytestState state;
         AnalyticsBridge analytics;
         ExportLogs exportLogs;
+        AudioManager audio;
+        PresentationFeedback feedback;
+        CharacterController hero;
+        EnemyController enemies;
         Font font;
+        TMP_FontAsset tmpFont;
         Text currencyText;
         Text timeText;
         Text insightText;
@@ -63,8 +74,35 @@ namespace Playtest
 
         IEnumerator Start()
         {
-            string path = Path.Combine(Application.streamingAssetsPath, "economy_config.json");
-            string json = null;
+            string economy = null;
+            string theme = null;
+            string cosmetic = null;
+            string season = null;
+            yield return ReadStreaming("economy_config.json", text => economy = text);
+            if (economy == null)
+                yield break;
+            yield return ReadStreaming("presentation.json", text => theme = text);
+            if (theme == null)
+                yield break;
+            yield return ReadStreaming("cosmetics.json", text => cosmetic = text);
+            if (cosmetic == null)
+                yield break;
+            yield return ReadStreaming("season_pass.json", text => season = text);
+            if (season == null)
+                yield break;
+            try
+            {
+                Boot(economy, theme, cosmetic, season);
+            }
+            catch (Exception exception)
+            {
+                ShowError(exception.Message);
+            }
+        }
+
+        IEnumerator ReadStreaming(string fileName, Action<string> sink)
+        {
+            string path = Path.Combine(Application.streamingAssetsPath, fileName);
             if (path.Contains("://"))
             {
                 UnityWebRequest request = UnityWebRequest.Get(path);
@@ -73,35 +111,27 @@ namespace Playtest
                 {
                     string error = request.error;
                     request.Dispose();
-                    ShowError(error);
+                    ShowError(fileName + " " + error);
                     yield break;
                 }
-                json = request.downloadHandler.text;
+                sink(request.downloadHandler.text);
                 request.Dispose();
-            }
-            else if (!File.Exists(path))
-            {
-                ShowError("economy_config.json ontbreekt in StreamingAssets.");
                 yield break;
             }
-            else
+            if (!File.Exists(path))
             {
-                json = File.ReadAllText(path);
+                ShowError(fileName + " ontbreekt in StreamingAssets.");
+                yield break;
             }
-
-            try
-            {
-                Boot(json);
-            }
-            catch (Exception exception)
-            {
-                ShowError(exception.Message);
-            }
+            sink(File.ReadAllText(path));
         }
 
-        void Boot(string json)
+        void Boot(string economy, string theme, string cosmetic, string season)
         {
-            config = EconomyConfig.Parse(json);
+            config = EconomyConfig.Parse(economy);
+            presentation = PresentationConfig.Parse(theme);
+            cosmetics = CosmeticsConfig.Parse(cosmetic);
+            seasonPass = SeasonPassConfig.Parse(season, cosmetics);
             string saved = ReadSave();
             if (saved != null)
                 state = PlaytestState.FromJson(config, saved);
@@ -112,7 +142,24 @@ namespace Playtest
             font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (font == null)
                 font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            BuildUi();
+            try
+            {
+                if (font != null)
+                    tmpFont = TMP_FontAsset.CreateFontAsset(font);
+            }
+            catch (Exception)
+            {
+                tmpFont = null;
+            }
+            Camera view = Camera.main;
+            if (view != null)
+                view.backgroundColor = presentation.Background;
+            audio = ScriptableObject.CreateInstance<AudioManager>();
+            audio.Open(presentation, gameObject);
+            RectTransform shakeRoot = BuildUi();
+            feedback = gameObject.AddComponent<PresentationFeedback>();
+            feedback.Bind(presentation, shakeRoot, view, tmpFont, font);
+            SpawnActors();
             ready = true;
             OpenSession();
             SyncOffers();
@@ -130,6 +177,8 @@ namespace Playtest
             if (dt > ForegroundGapSeconds)
                 dt = 0.0;
             state.Tick(dt);
+            if (audio != null)
+                audio.SetBoss(ApproachingPrestige());
             SyncOffers();
             Refresh();
         }
@@ -231,10 +280,13 @@ namespace Playtest
 
         void BuyGenerator(GeneratorConfig generator)
         {
+            double before = state.Currency;
             PurchaseResult result;
             if (!state.TryBuyGenerator(generator, out result))
                 return;
             analytics.UpgradePurchase(generator.Id, result.Cost, result.OwnedAfter, result.CurrencyAfter, state.RunActiveSeconds);
+            GeneratorRow row = RowFor(generator.Id);
+            Juice(result.Cost, before, CrossedMilestone(result.OwnedAfter), row == null ? null : row.Buy.Rect);
             SyncOffers();
             Refresh();
             Save();
@@ -245,10 +297,14 @@ namespace Playtest
             double since = state.ActiveSecondsSinceOffer(branch.Id);
             double active = state.RunActiveSeconds;
             double owned = state.TotalOwned;
+            double before = state.Currency;
             PurchaseResult result;
             if (!state.TryBuyBranch(branch, out result))
                 return;
             analytics.ContractPurchase(branch.Id, owned, since, active);
+            LabeledButton button;
+            contractButtons.TryGetValue(branch.Id, out button);
+            Juice(result.Cost, before, false, button == null ? null : button.Rect);
             SyncOffers();
             Refresh();
             Save();
@@ -256,10 +312,14 @@ namespace Playtest
 
         void BuyRelic(RelicItemConfig relic)
         {
+            double before = state.Insight;
             RelicPurchaseResult result;
             if (!state.TryBuyRelic(relic, out result))
                 return;
             analytics.RelicPurchase(result.RelicId, result.InsightCost, result.InsightAfter, state.RunActiveSeconds);
+            LabeledButton button;
+            relicButtons.TryGetValue(relic.Id, out button);
+            Juice(result.InsightCost, before, false, button == null ? null : button.Rect);
             Refresh();
             Save();
         }
@@ -271,9 +331,97 @@ namespace Playtest
             if (!state.TryPrestige(out outcome))
                 return;
             analytics.PrestigeTrigger(outcome.LifetimeCurrency, outcome.PointsGranted, outcome.MultiplierAfter, active);
+            if (feedback != null)
+            {
+                feedback.Confetti();
+                feedback.Shake();
+                feedback.Float(
+                    presentation.PrestigeLabel,
+                    presentation.Currency,
+                    prestigeButton == null ? null : prestigeButton.Rect);
+            }
+            if (audio != null)
+                audio.PlayCrit();
+            if (hero != null)
+                hero.Cue(presentation.PrestigeHero);
+            if (enemies != null)
+                enemies.Cue(presentation.PrestigeEnemy);
             SyncOffers();
             Refresh();
             Save();
+        }
+
+        void Juice(double cost, double before, bool milestone, RectTransform anchor)
+        {
+            bool large = LargePurchase(cost, before) || milestone;
+            if (feedback != null)
+            {
+                feedback.Float(FormatAmount(cost), large ? presentation.Critical : presentation.Currency, anchor);
+                if (large)
+                    feedback.Shake();
+                if (milestone)
+                    feedback.Confetti();
+            }
+            if (audio != null)
+            {
+                if (large)
+                    audio.PlayCrit();
+                else
+                    audio.PlayUpgrade();
+            }
+            if (hero != null)
+                hero.Cue(milestone ? presentation.MilestoneHero : presentation.PurchaseHero);
+            if (enemies != null)
+                enemies.Cue(milestone ? presentation.MilestoneEnemy : presentation.PurchaseEnemy);
+        }
+
+        bool LargePurchase(double cost, double before)
+        {
+            return before > 0.0 && cost >= before * presentation.LargePurchaseCostShare;
+        }
+
+        bool CrossedMilestone(int ownedAfter)
+        {
+            if (config.Milestones == null)
+                return false;
+            for (int index = 0; index < config.Milestones.Length; index++)
+            {
+                if (config.Milestones[index].OwnedAtLeast == ownedAfter)
+                    return true;
+            }
+            return false;
+        }
+
+        bool ApproachingPrestige()
+        {
+            PrestigeConfig prestige = config.Prestige;
+            if (prestige.Coeff <= 0.0 || prestige.Exponent <= 0.0 || prestige.Divisor <= 0.0)
+                return false;
+            double needed = prestige.Divisor * Math.Pow(
+                prestige.MinPointsToPrestige / prestige.Coeff,
+                1.0 / prestige.Exponent);
+            return state.LifetimeCurrency >= needed * presentation.BossApproachRatio;
+        }
+
+        GeneratorRow RowFor(string id)
+        {
+            for (int index = 0; index < generatorRows.Count; index++)
+            {
+                if (generatorRows[index].Generator.Id == id)
+                    return generatorRows[index];
+            }
+            return null;
+        }
+
+        void SpawnActors()
+        {
+            RuntimeAnimatorController controller = Resources.Load<RuntimeAnimatorController>(presentation.AnimatorResource);
+            GameObject heroObject = new GameObject(presentation.Hero.Id);
+            hero = heroObject.AddComponent<CharacterController>();
+            hero.Bind(presentation, presentation.Hero, controller);
+            GameObject enemyObject = new GameObject("Enemies");
+            enemies = enemyObject.AddComponent<EnemyController>();
+            enemies.Bind(presentation, controller);
         }
 
         void Save()
@@ -310,26 +458,34 @@ namespace Playtest
         void Refresh()
         {
             currencyText.text = config.CurrencyId + "  " + FormatAmount(state.Currency);
+            currencyText.color = presentation.Currency;
             insightText.text = config.Relics.CurrencyId + "  " + state.Insight.ToString(CultureInfo.InvariantCulture);
+            insightText.color = presentation.Text;
             if (sessionOpen)
-                timeText.text = "tijd  " + FormatElapsed((DateTime.UtcNow - sessionStartedAt).TotalSeconds);
+                timeText.text = presentation.TimeLabel + "  " + FormatElapsed((DateTime.UtcNow - sessionStartedAt).TotalSeconds);
             foreach (GeneratorRow row in generatorRows)
             {
-                row.Owned.text = row.Generator.Id + "  " + state.OwnedCount(row.Generator.Id).ToString(CultureInfo.InvariantCulture);
+                int owned = state.OwnedCount(row.Generator.Id);
+                row.Owned.text = row.Generator.Id + "  " + owned.ToString(CultureInfo.InvariantCulture);
+                row.Owned.color = presentation.Text;
+                int next = NextMilestone(owned);
+                float ratio = next <= 0 ? 0f : Mathf.Clamp01(owned / (float)next);
+                row.BarFill.rectTransform.anchorMax = new Vector2(ratio, 1f);
                 double cost = state.NextGeneratorCost(row.Generator);
                 row.Buy.Label.text = row.Generator.Id + "  " + FormatAmount(cost);
                 row.Buy.Button.interactable = state.Currency >= cost;
             }
             prestigeButton.Button.gameObject.SetActive(state.PrestigeAvailable());
-            prestigeButton.Label.text = "Prestige  x" + FormatAmount(state.PrestigeMultiplierAfterReset());
+            prestigeButton.Label.text = presentation.PrestigeLabel + "  x" + FormatAmount(state.PrestigeMultiplierAfterReset());
             foreach (BranchConfig branch in config.Branches)
             {
                 LabeledButton button = contractButtons[branch.Id];
                 bool open = state.OfferIsOpen(branch);
                 button.Button.gameObject.SetActive(open);
                 double cost = state.NextBranchCost(branch);
-                button.Label.text = "Contract  dip " + FormatAmount(branch.ActiveProductionMultiplier)
-                    + "  piek " + FormatAmount(branch.PeakProductionMultiplier)
+                button.Label.text = presentation.ContractLabel
+                    + "  " + presentation.DipLabel + " " + FormatAmount(branch.ActiveProductionMultiplier)
+                    + "  " + presentation.PeakLabel + " " + FormatAmount(branch.PeakProductionMultiplier)
                     + "  " + FormatAmount(cost);
                 button.Button.interactable = state.Currency >= cost;
             }
@@ -338,13 +494,34 @@ namespace Playtest
                 LabeledButton button = relicButtons[relic.Id];
                 bool available = state.RelicLevel(relic.Id) < relic.MaxLevel;
                 button.Button.gameObject.SetActive(available);
-                button.Label.text = "Koop relic " + relic.Id + "  " + relic.InsightCost.ToString(CultureInfo.InvariantCulture)
+                button.Label.text = presentation.RelicLabel + " " + relic.Id + "  "
+                    + relic.InsightCost.ToString(CultureInfo.InvariantCulture)
                     + " " + config.Relics.CurrencyId;
                 button.Button.interactable = state.Insight >= relic.InsightCost;
             }
         }
 
-        void BuildUi()
+        int NextMilestone(int owned)
+        {
+            int next = 0;
+            bool found = false;
+            if (config.Milestones == null)
+                return owned > 0 ? owned : 1;
+            for (int index = 0; index < config.Milestones.Length; index++)
+            {
+                int at = config.Milestones[index].OwnedAtLeast;
+                if (at > owned && (!found || at < next))
+                {
+                    next = at;
+                    found = true;
+                }
+            }
+            if (found)
+                return next;
+            return owned > 0 ? owned : 1;
+        }
+
+        RectTransform BuildUi()
         {
             if (FindObjectOfType<EventSystem>() == null)
                 new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
@@ -354,13 +531,43 @@ namespace Playtest
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080f, 1920f);
-            scaler.matchWidthOrHeight = 0.5f;
+            scaler.referenceResolution = new Vector2(presentation.ReferenceWidth, presentation.ReferenceHeight);
+            scaler.matchWidthOrHeight = presentation.MatchWidthOrHeight;
 
-            GameObject scrollObject = new GameObject("Scroll", typeof(RectTransform), typeof(ScrollRect), typeof(Image), typeof(RectMask2D));
-            scrollObject.transform.SetParent(canvasObject.transform, false);
-            Stretch(scrollObject.GetComponent<RectTransform>());
-            scrollObject.GetComponent<Image>().color = new Color(0.1f, 0.1f, 0.12f, 1f);
+            GameObject rootObject = new GameObject("Shake", typeof(RectTransform), typeof(VerticalLayoutGroup));
+            rootObject.transform.SetParent(canvasObject.transform, false);
+            RectTransform shakeRoot = rootObject.GetComponent<RectTransform>();
+            Stretch(shakeRoot);
+            VerticalLayoutGroup column = rootObject.GetComponent<VerticalLayoutGroup>();
+            column.padding = new RectOffset(presentation.Padding, presentation.Padding, presentation.Padding, presentation.Padding);
+            column.spacing = presentation.Spacing;
+            column.childAlignment = TextAnchor.UpperCenter;
+            column.childControlWidth = true;
+            column.childControlHeight = true;
+            column.childForceExpandWidth = true;
+            column.childForceExpandHeight = false;
+
+            GameObject stage = new GameObject("Stage", typeof(RectTransform), typeof(LayoutElement));
+            stage.transform.SetParent(shakeRoot, false);
+            LayoutElement stageElement = stage.GetComponent<LayoutElement>();
+            stageElement.preferredHeight = presentation.ReferenceHeight * presentation.StageFraction;
+            stageElement.minHeight = stageElement.preferredHeight;
+
+            currencyText = MakeText(shakeRoot, presentation.CurrencySize, presentation.CurrencyMinHeight, presentation.Currency);
+            timeText = MakeText(shakeRoot, presentation.BodySize, presentation.BodyMinHeight, presentation.Text);
+            insightText = MakeText(shakeRoot, presentation.BodySize, presentation.BodyMinHeight, presentation.Text);
+            if (Browser())
+            {
+                LabeledButton download = MakeButton(shakeRoot, presentation.ButtonMinHeight, () => exportLogs.ExportNow());
+                download.Label.text = presentation.DownloadLabel;
+            }
+
+            GameObject scrollObject = new GameObject("Scroll", typeof(RectTransform), typeof(ScrollRect), typeof(Image), typeof(RectMask2D), typeof(LayoutElement));
+            scrollObject.transform.SetParent(shakeRoot, false);
+            scrollObject.GetComponent<Image>().color = presentation.Background;
+            LayoutElement scrollElement = scrollObject.GetComponent<LayoutElement>();
+            scrollElement.flexibleHeight = 1f;
+            scrollElement.minHeight = presentation.ButtonMinHeight;
             ScrollRect scroll = scrollObject.GetComponent<ScrollRect>();
             scroll.horizontal = false;
             scroll.movementType = ScrollRect.MovementType.Clamped;
@@ -375,8 +582,8 @@ namespace Playtest
             content.offsetMin = Vector2.zero;
             content.offsetMax = Vector2.zero;
             VerticalLayoutGroup layout = contentObject.GetComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(32, 32, 32, 48);
-            layout.spacing = 12f;
+            layout.padding = new RectOffset(0, 0, 0, presentation.Padding);
+            layout.spacing = presentation.Spacing;
             layout.childAlignment = TextAnchor.UpperCenter;
             layout.childControlWidth = true;
             layout.childControlHeight = true;
@@ -387,39 +594,45 @@ namespace Playtest
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             scroll.content = content;
 
-            currencyText = MakeText(content, 56, 88);
-            timeText = MakeText(content, 28, 40);
-            insightText = MakeText(content, 32, 48);
-            if (Browser())
-            {
-                LabeledButton download = MakeButton(content, 72, () => exportLogs.ExportNow());
-                download.Label.text = "Log downloaden";
-            }
+            int iconIndex = 0;
             foreach (GeneratorConfig generator in config.Generators)
             {
                 GeneratorConfig captured = generator;
+                MakeIcon(content, presentation.IconColor(iconIndex));
+                iconIndex++;
                 GeneratorRow row = new GeneratorRow
                 {
                     Generator = generator,
-                    Owned = MakeText(content, 22, 32),
-                    Buy = MakeButton(content, 72, () => BuyGenerator(captured)),
+                    Owned = MakeText(content, presentation.GeneratorSize, presentation.BodyMinHeight, presentation.Text),
+                    BarFill = MakeBar(content),
+                    Buy = MakeButton(content, presentation.ButtonMinHeight, () => BuyGenerator(captured)),
                 };
                 generatorRows.Add(row);
-            }
-            prestigeButton = MakeButton(content, 88, Prestige);
-            prestigeButton.Button.gameObject.SetActive(false);
-            foreach (BranchConfig branch in config.Branches)
-            {
-                BranchConfig captured = branch;
-                LabeledButton button = MakeButton(content, 88, () => BuyBranch(captured));
-                button.Button.gameObject.SetActive(false);
-                contractButtons[branch.Id] = button;
             }
             foreach (RelicItemConfig relic in config.Relics.Items)
             {
                 RelicItemConfig captured = relic;
-                relicButtons[relic.Id] = MakeButton(content, 72, () => BuyRelic(captured));
+                relicButtons[relic.Id] = MakeButton(content, presentation.ButtonMinHeight, () => BuyRelic(captured));
             }
+            MakeText(content, presentation.BodySize, presentation.BodyMinHeight, presentation.Text).text =
+                presentation.SeasonLabel + "  " + seasonPass.SeasonId + "  " + seasonPass.StartDate + "  " + seasonPass.EndDate;
+            foreach (CosmeticItem item in cosmetics.Items)
+            {
+                string premium = item.Premium ? "  " + presentation.PremiumLabel : "";
+                MakeText(content, presentation.BodySize, presentation.BodyMinHeight, presentation.Text).text =
+                    item.Name + "  " + item.Slot + premium;
+            }
+
+            prestigeButton = MakeButton(shakeRoot, presentation.ButtonMinHeight, Prestige);
+            prestigeButton.Button.gameObject.SetActive(false);
+            foreach (BranchConfig branch in config.Branches)
+            {
+                BranchConfig captured = branch;
+                LabeledButton button = MakeButton(shakeRoot, presentation.ButtonMinHeight, () => BuyBranch(captured));
+                button.Button.gameObject.SetActive(false);
+                contractButtons[branch.Id] = button;
+            }
+            return shakeRoot;
         }
 
         void ShowError(string message)
@@ -432,20 +645,20 @@ namespace Playtest
             CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1080f, 1920f);
-            errorText = MakeText(canvasObject.transform, 32, 400);
+            errorText = MakeText(canvasObject.transform, 32, 400f, Color.white);
             Stretch(errorText.rectTransform);
             errorText.alignment = TextAnchor.UpperLeft;
             errorText.text = message;
         }
 
-        Text MakeText(Transform parent, int size, float height)
+        Text MakeText(Transform parent, int size, float height, Color color)
         {
             GameObject item = new GameObject("Text", typeof(RectTransform), typeof(Text), typeof(LayoutElement));
             item.transform.SetParent(parent, false);
             Text text = item.GetComponent<Text>();
             text.font = font;
             text.fontSize = size;
-            text.color = Color.white;
+            text.color = color;
             text.alignment = TextAnchor.MiddleLeft;
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
             text.verticalOverflow = VerticalWrapMode.Overflow;
@@ -465,13 +678,67 @@ namespace Playtest
             element.minHeight = height;
             element.preferredHeight = height;
             Button button = item.GetComponent<Button>();
+            ColorBlock colors = button.colors;
+            colors.normalColor = presentation.Button;
+            colors.highlightedColor = presentation.Text;
+            colors.pressedColor = presentation.Critical;
+            colors.selectedColor = presentation.Button;
+            colors.disabledColor = presentation.BarTrack;
+            button.colors = colors;
+            button.onClick.AddListener(() =>
+            {
+                if (audio != null)
+                    audio.PlayClick();
+            });
             button.onClick.AddListener(action);
-            Text label = MakeText(item.transform, 24, height - 8f);
+            Text label = MakeText(item.transform, presentation.BodySize, height - presentation.Spacing, presentation.ButtonText);
             Stretch(label.rectTransform);
-            label.color = Color.black;
             label.alignment = TextAnchor.MiddleCenter;
             label.GetComponent<LayoutElement>().ignoreLayout = true;
-            return new LabeledButton { Button = button, Label = label };
+            return new LabeledButton
+            {
+                Button = button,
+                Label = label,
+                Rect = item.GetComponent<RectTransform>(),
+            };
+        }
+
+        Image MakeIcon(Transform parent, Color color)
+        {
+            GameObject item = new GameObject("Icon", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+            item.transform.SetParent(parent, false);
+            Image image = item.GetComponent<Image>();
+            image.color = color;
+            LayoutElement element = item.GetComponent<LayoutElement>();
+            element.minHeight = presentation.BarHeight * 2f;
+            element.preferredHeight = presentation.BarHeight * 2f;
+            element.minWidth = presentation.BarHeight * 2f;
+            return image;
+        }
+
+        Image MakeBar(Transform parent)
+        {
+            GameObject track = new GameObject("Bar", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+            track.transform.SetParent(parent, false);
+            track.GetComponent<Image>().color = presentation.BarTrack;
+            LayoutElement element = track.GetComponent<LayoutElement>();
+            element.minHeight = presentation.BarHeight;
+            element.preferredHeight = presentation.BarHeight;
+            GameObject fill = new GameObject("Fill", typeof(RectTransform), typeof(Image), typeof(Outline));
+            fill.transform.SetParent(track.transform, false);
+            RectTransform rect = fill.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            Image image = fill.GetComponent<Image>();
+            image.color = presentation.Bar;
+            Outline glow = fill.GetComponent<Outline>();
+            Color glowColor = presentation.Glow;
+            glowColor.a = presentation.GlowAlpha;
+            glow.effectColor = glowColor;
+            glow.effectDistance = new Vector2(presentation.GlowDistance, presentation.GlowDistance);
+            return image;
         }
 
         static void Stretch(RectTransform rect)

@@ -423,11 +423,22 @@ def _round_number(value: object, digits: int = 6) -> object:
     return value
 
 
+# Not the frozen generator curve. relics.json is the second reward axis.
+# The other names are playtest presentation and do not change production.
+_FINGERPRINT_SKIP = frozenset(
+    {
+        "relics.json",
+        "cosmetics.json",
+        "season_pass.json",
+        "presentation.json",
+    }
+)
+
+
 def data_fingerprint(data_dir: Path) -> str:
     digest = hashlib.sha256()
     for path in sorted(data_dir.glob("*.json")):
-        # relics.json is the second axis. The frozen curve hash does not include it.
-        if path.name == "relics.json":
+        if path.name in _FINGERPRINT_SKIP:
             continue
         digest.update(path.name.encode())
         digest.update(path.read_bytes())
