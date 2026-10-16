@@ -137,6 +137,41 @@ namespace Playtest
             });
         }
 
+        public void AssassinateTriggered(double amount, bool backstab)
+        {
+            Write("assassinate_triggered", new Dictionary<string, object>
+            {
+                { "amount", amount },
+                { "backstab", backstab },
+            });
+        }
+
+        public void BackstabTriggered(double amount)
+        {
+            Write("backstab_triggered", new Dictionary<string, object>
+            {
+                { "amount", amount },
+            });
+        }
+
+        public void HvtSpawned()
+        {
+            Write("hvt_spawned", new Dictionary<string, object>());
+        }
+
+        public void HvtCompleted(double reward)
+        {
+            Write("hvt_completed", new Dictionary<string, object>
+            {
+                { "reward", reward },
+            });
+        }
+
+        public void HvtFailed()
+        {
+            Write("hvt_failed", new Dictionary<string, object>());
+        }
+
         public void Flush()
         {
             if (writer != null)

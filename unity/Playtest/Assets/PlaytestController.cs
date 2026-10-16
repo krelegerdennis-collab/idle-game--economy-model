@@ -77,6 +77,31 @@ namespace Playtest
         bool generatorScrollPinned;
         Vector2 laidOutStage;
         GameObject shopPanel;
+        AssassinConfig assassin;
+        Image stageBackground;
+        RectTransform stageBackgroundRect;
+        Image backstabFlash;
+        Image prestigeFlash;
+        float backstabFlashUntil;
+        float prestigeFlashUntil;
+        LabeledButton assassinateButton;
+        Image assassinateFill;
+        GameObject hvtWidget;
+        Text hvtTitle;
+        Text hvtTime;
+        double playClock;
+        double assassinateReadyAt;
+        int hvtTaps;
+        double hvtSpawnAt;
+        double hvtWindowEnd;
+        HvtPhase hvtPhase;
+        Sprite solidSprite;
+
+        enum HvtPhase
+        {
+            Waiting,
+            Active,
+        }
 
         void Awake()
         {
@@ -108,6 +133,10 @@ namespace Playtest
             yield return ReadStreaming("season_pass.json", text => season = text);
             if (season == null)
                 yield break;
+            string assassinText = null;
+            yield return ReadStreaming("assassin.json", text => assassinText = text);
+            if (assassinText == null)
+                yield break;
             PresentationConfig parsed = null;
             try
             {
@@ -129,7 +158,7 @@ namespace Playtest
             }
             try
             {
-                Boot(economy, theme, cosmetic, season);
+                Boot(economy, theme, cosmetic, season, assassinText);
             }
             catch (Exception exception)
             {
@@ -179,10 +208,16 @@ namespace Playtest
                 sink(File.ReadAllBytes(path));
         }
 
-        void Boot(string economy, string theme, string cosmetic, string season)
+        void Boot(string economy, string theme, string cosmetic, string season, string assassinJson)
         {
             config = EconomyConfig.Parse(economy);
             presentation = PresentationConfig.Parse(theme);
+            assassin = AssassinConfig.Parse(assassinJson);
+            hvtPhase = HvtPhase.Waiting;
+            hvtSpawnAt = assassin.HvtFirstDelaySeconds;
+            hvtTaps = 0;
+            playClock = 0.0;
+            assassinateReadyAt = 0.0;
             cosmetics = CosmeticsConfig.Parse(cosmetic);
             seasonPass = SeasonPassConfig.Parse(season, cosmetics);
             string saved = ReadSave();
@@ -230,6 +265,7 @@ namespace Playtest
             if (dt > ForegroundGapSeconds)
                 dt = 0.0;
             state.Tick(dt);
+            AdvanceAssassin(dt);
             if (audioManager != null)
                 audioManager.SetBoss(ApproachingPrestige());
             SyncOffers();
@@ -403,6 +439,8 @@ namespace Playtest
             }
             if (audioManager != null)
                 audioManager.PlayCrit();
+            if (assassin != null)
+                StartFlash(prestigeFlash, Color.white, assassin.PrestigeFlashSeconds);
             if (hero != null)
                 hero.Cue(presentation.PrestigeHero);
             if (enemies != null)
@@ -479,14 +517,60 @@ namespace Playtest
             GameObject backdropObject = new GameObject("Backdrop", typeof(RectTransform), typeof(Image));
             backdropObject.transform.SetParent(canvas, false);
             Stretch(backdropObject.GetComponent<RectTransform>());
-            Image background = backdropObject.GetComponent<Image>();
+            stageBackgroundRect = backdropObject.GetComponent<RectTransform>();
+            stageBackground = backdropObject.GetComponent<Image>();
             byte[] pixels = Picture(presentation.StageBackground);
             if (pixels != null)
-                background.sprite = UiSprite(pixels);
-            background.preserveAspect = false;
-            background.color = pixels == null ? presentation.Background : Color.white;
-            background.raycastTarget = false;
-            background.type = Image.Type.Simple;
+                stageBackground.sprite = UiSprite(pixels);
+            stageBackground.preserveAspect = false;
+            stageBackground.color = assassin == null ? presentation.Background : assassin.TintForOwned(0);
+            stageBackground.raycastTarget = false;
+            stageBackground.type = Image.Type.Simple;
+        }
+
+        void BuildVignette(Transform canvas)
+        {
+            if (assassin == null || presentation == null)
+                return;
+            int texels = assassin.VignetteTexels;
+            Texture2D texture = new Texture2D(texels, texels, TextureFormat.RGBA32, false);
+            Color[] pixels = new Color[texels * texels];
+            Color edge = presentation.Background;
+            float inner = assassin.VignetteInner;
+            float alpha = assassin.VignetteAlpha;
+            float span = texels - 1;
+            for (int y = 0; y < texels; y++)
+            {
+                for (int x = 0; x < texels; x++)
+                {
+                    float nx = span <= 0f ? 0.5f : x / span;
+                    float ny = span <= 0f ? 0.5f : y / span;
+                    float dx = Mathf.Abs(nx * 2f - 1f);
+                    float dy = Mathf.Abs(ny * 2f - 1f);
+                    float reach = Mathf.Sqrt(dx * dx + dy * dy);
+                    float falloff = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(inner, 1f, reach));
+                    Color pixel = edge;
+                    pixel.a = alpha * falloff;
+                    pixels[y * texels + x] = pixel;
+                }
+            }
+            texture.SetPixels(pixels);
+            texture.Apply();
+            texture.wrapMode = TextureWrapMode.Clamp;
+            texture.filterMode = FilterMode.Bilinear;
+            GameObject overlay = new GameObject("Vignette", typeof(RectTransform), typeof(Image));
+            overlay.transform.SetParent(canvas, false);
+            Stretch(overlay.GetComponent<RectTransform>());
+            Image image = overlay.GetComponent<Image>();
+            image.sprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, texture.width, texture.height),
+                new Vector2(0.5f, 0.5f),
+                presentation.PixelsPerUnit);
+            image.type = Image.Type.Simple;
+            image.preserveAspect = false;
+            image.raycastTarget = false;
+            image.color = Color.white;
         }
 
         void SpawnActors(RectTransform stage)
@@ -606,6 +690,9 @@ namespace Playtest
                     + " " + config.Relics.CurrencyId;
                 button.Button.interactable = state.Insight >= relic.InsightCost;
             }
+            if (stageBackground != null && assassin != null)
+                stageBackground.color = assassin.TintForOwned(state.TotalOwned);
+            RefreshHighValueTarget();
         }
 
         int NextMilestone(int owned)
@@ -642,6 +729,7 @@ namespace Playtest
             scaler.matchWidthOrHeight = presentation.MatchWidthOrHeight;
             screenCanvas = canvasObject.GetComponent<RectTransform>();
             BuildBackdrop(screenCanvas);
+            BuildVignette(screenCanvas);
 
             GameObject rootObject = new GameObject("Shake", typeof(RectTransform));
             rootObject.transform.SetParent(canvasObject.transform, false);
@@ -655,6 +743,8 @@ namespace Playtest
             BuildTop(top);
             BuildMiddle(middleBand);
             BuildBottom(bottom);
+            BuildHighValueTarget(shakeRoot);
+            BuildFlashes(shakeRoot);
             return shakeRoot;
         }
 
@@ -770,8 +860,15 @@ namespace Playtest
             RectTransform contracts = MakeSlot(bottom, TextAnchor.MiddleLeft);
             RectTransform center = MakeSlot(bottom, TextAnchor.MiddleCenter);
             RectTransform prestigeSlot = MakeSlot(bottom, TextAnchor.MiddleRight);
-            LabeledButton shop = MakeButton(center, presentation.ButtonMinHeight, ToggleShop);
-            shop.Label.text = presentation.ShopLabel;
+            float share = assassin.ButtonWidthFraction;
+            float side = (1f - share) * 0.5f;
+            contracts.GetComponent<LayoutElement>().flexibleWidth = side;
+            LayoutElement centerElement = center.GetComponent<LayoutElement>();
+            centerElement.flexibleWidth = share;
+            centerElement.minHeight = assassin.ButtonHeight;
+            centerElement.preferredHeight = assassin.ButtonHeight;
+            prestigeSlot.GetComponent<LayoutElement>().flexibleWidth = side;
+            assassinateButton = BuildAssassinateButton(center);
             foreach (BranchConfig branch in config.Branches)
             {
                 BranchConfig captured = branch;
@@ -781,9 +878,11 @@ namespace Playtest
             }
             if (Browser())
             {
-                LabeledButton download = MakeButton(center, presentation.ButtonMinHeight, () => exportLogs.ExportNow());
+                LabeledButton download = MakeButton(contracts, presentation.ButtonMinHeight, () => exportLogs.ExportNow());
                 download.Label.text = presentation.DownloadLabel;
             }
+            LabeledButton shop = MakeButton(prestigeSlot, presentation.ButtonMinHeight, ToggleShop);
+            shop.Label.text = presentation.ShopLabel;
             prestigeButton = MakeButton(prestigeSlot, presentation.ButtonMinHeight, Prestige);
             byte[] prestigeIcon = Picture(presentation.PrestigeIcon);
             if (prestigeIcon != null)
@@ -1233,6 +1332,282 @@ namespace Playtest
             glow.effectColor = glowColor;
             glow.effectDistance = new Vector2(presentation.GlowDistance, presentation.GlowDistance);
             return image;
+        }
+
+        void AdvanceAssassin(double dt)
+        {
+            if (assassin == null)
+                return;
+            playClock += dt;
+            if (hvtPhase == HvtPhase.Waiting && playClock >= hvtSpawnAt)
+                SpawnHighValueTarget();
+            else if (hvtPhase == HvtPhase.Active && playClock >= hvtWindowEnd)
+                FailHighValueTarget();
+            UpdateAssassinateCooldown();
+            UpdateBackgroundMotion();
+            FadeFlash(backstabFlash, backstabFlashUntil, assassin.BackstabFlashSeconds);
+            FadeFlash(prestigeFlash, prestigeFlashUntil, assassin.PrestigeFlashSeconds);
+        }
+
+        void Assassinate()
+        {
+            if (assassin == null || state == null || playClock < assassinateReadyAt)
+                return;
+            bool backstab = UnityEngine.Random.value < assassin.BackstabChance;
+            double amount = assassin.Burst(state.TotalOwned, backstab);
+            state.GrantCurrency(amount);
+            if (analytics != null)
+                analytics.AssassinateTriggered(amount, backstab);
+            assassinateReadyAt = playClock + assassin.CooldownSeconds;
+            if (assassinateButton != null)
+                assassinateButton.Button.interactable = assassin.CooldownSeconds <= 0f;
+            if (assassinateFill != null && assassin.CooldownSeconds > 0f)
+                assassinateFill.fillAmount = 1f;
+            if (backstab)
+            {
+                if (analytics != null)
+                    analytics.BackstabTriggered(amount);
+                StartFlash(backstabFlash, presentation.Critical, assassin.BackstabFlashSeconds);
+                if (feedback != null)
+                {
+                    feedback.Shake();
+                    string label = assassin.BackstabLabel.Replace("{amount}", FormatAmount(amount));
+                    RectTransform anchor = assassinateButton == null ? null : assassinateButton.Rect;
+                    feedback.Float(label, presentation.Critical, anchor);
+                }
+            }
+            if (hvtPhase == HvtPhase.Active)
+            {
+                hvtTaps += 1;
+                if (hvtTaps >= assassin.HvtTapsRequired)
+                    CompleteHighValueTarget();
+            }
+            Refresh();
+            Save();
+        }
+
+        void SpawnHighValueTarget()
+        {
+            hvtPhase = HvtPhase.Active;
+            hvtTaps = 0;
+            hvtWindowEnd = playClock + assassin.HvtWindowSeconds;
+            if (analytics != null)
+                analytics.HvtSpawned();
+        }
+
+        void FailHighValueTarget()
+        {
+            hvtPhase = HvtPhase.Waiting;
+            hvtTaps = 0;
+            hvtSpawnAt = playClock + assassin.HvtFailCooldownSeconds;
+            if (analytics != null)
+                analytics.HvtFailed();
+        }
+
+        void CompleteHighValueTarget()
+        {
+            hvtPhase = HvtPhase.Waiting;
+            hvtTaps = 0;
+            hvtSpawnAt = playClock + assassin.HvtIntervalSeconds;
+            state.GrantCurrency(assassin.HvtReward);
+            if (analytics != null)
+                analytics.HvtCompleted(assassin.HvtReward);
+            if (feedback != null)
+                feedback.Confetti();
+        }
+
+        void UpdateAssassinateCooldown()
+        {
+            if (assassinateButton == null || assassin == null)
+                return;
+            double remaining = assassinateReadyAt - playClock;
+            bool cooling = remaining > 0.0;
+            assassinateButton.Button.interactable = !cooling;
+            if (assassinateFill == null)
+                return;
+            float cooldown = assassin.CooldownSeconds;
+            assassinateFill.fillAmount = !cooling || cooldown <= 0f
+                ? 0f
+                : Mathf.Clamp01((float)(remaining / cooldown));
+        }
+
+        void UpdateBackgroundMotion()
+        {
+            if (stageBackgroundRect == null || screenCanvas == null || assassin == null)
+                return;
+            float width = screenCanvas.rect.width;
+            if (width < 1f)
+                width = presentation.ReferenceWidth;
+            float period = assassin.MotionPeriodSeconds;
+            float half = period * 0.5f;
+            float along = half <= 0f ? 0f : Mathf.PingPong((float)playClock, half) / half;
+            float centered = along * 2f - 1f;
+            float extra = assassin.MotionAmplitude * width;
+            float shift = centered * extra;
+            stageBackgroundRect.offsetMin = new Vector2(-extra + shift, 0f);
+            stageBackgroundRect.offsetMax = new Vector2(extra + shift, 0f);
+        }
+
+        void RefreshHighValueTarget()
+        {
+            if (hvtWidget == null)
+                return;
+            bool active = hvtPhase == HvtPhase.Active;
+            if (hvtWidget.activeSelf != active)
+                hvtWidget.SetActive(active);
+            if (!active || hvtTime == null || assassin == null)
+                return;
+            hvtTitle.text = assassin.HvtTitle;
+            hvtTitle.color = presentation.Critical;
+            double remaining = hvtWindowEnd - playClock;
+            if (remaining < 0.0)
+                remaining = 0.0;
+            int secondsLeft = (int)Math.Ceiling(remaining);
+            hvtTime.text = secondsLeft.ToString(CultureInfo.InvariantCulture);
+            hvtTime.color = presentation.Text;
+        }
+
+        void BuildHighValueTarget(Transform parent)
+        {
+            GameObject widget = new GameObject("HighValueTarget", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            widget.transform.SetParent(parent, false);
+            RectTransform rect = widget.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(1f, presentation.TopAnchor);
+            rect.anchorMax = new Vector2(1f, presentation.TopAnchor);
+            rect.pivot = new Vector2(1f, 1f);
+            rect.anchoredPosition = new Vector2(-presentation.Padding, -presentation.Padding);
+            Image plate = widget.GetComponent<Image>();
+            Color plateColor = presentation.Button;
+            plateColor.a = presentation.GlowAlpha;
+            plate.color = plateColor;
+            plate.raycastTarget = false;
+            VerticalLayoutGroup column = widget.GetComponent<VerticalLayoutGroup>();
+            int pad = presentation.Padding;
+            column.padding = new RectOffset(pad, pad, pad, pad);
+            column.spacing = presentation.Spacing;
+            column.childAlignment = TextAnchor.UpperRight;
+            column.childControlWidth = true;
+            column.childControlHeight = true;
+            column.childForceExpandWidth = false;
+            column.childForceExpandHeight = false;
+            ContentSizeFitter fitter = widget.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            hvtTitle = MakeText(widget.transform, presentation.GeneratorSize, presentation.BodyMinHeight, presentation.Critical);
+            hvtTitle.alignment = TextAnchor.MiddleRight;
+            hvtTitle.horizontalOverflow = HorizontalWrapMode.Overflow;
+            hvtTitle.text = assassin.HvtTitle;
+            hvtTime = MakeText(widget.transform, presentation.BodySize, presentation.BodyMinHeight, presentation.Text);
+            hvtTime.alignment = TextAnchor.MiddleRight;
+            hvtTime.horizontalOverflow = HorizontalWrapMode.Overflow;
+            hvtWidget = widget;
+            hvtWidget.SetActive(false);
+        }
+
+        void BuildFlashes(Transform parent)
+        {
+            backstabFlash = MakeFlash(parent, "BackstabFlash");
+            prestigeFlash = MakeFlash(parent, "PrestigeFlash");
+        }
+
+        Image MakeFlash(Transform parent, string name)
+        {
+            GameObject item = new GameObject(name, typeof(RectTransform), typeof(Image));
+            item.transform.SetParent(parent, false);
+            Stretch(item.GetComponent<RectTransform>());
+            Image image = item.GetComponent<Image>();
+            image.sprite = SolidSprite();
+            image.color = new Color(1f, 1f, 1f, 0f);
+            image.raycastTarget = false;
+            image.preserveAspect = false;
+            return image;
+        }
+
+        void StartFlash(Image image, Color color, float seconds)
+        {
+            if (image == null)
+                return;
+            color.a = seconds <= 0f ? 0f : 1f;
+            image.color = color;
+            float until = Time.unscaledTime + seconds;
+            if (image == prestigeFlash)
+                prestigeFlashUntil = until;
+            else
+                backstabFlashUntil = until;
+        }
+
+        static void FadeFlash(Image image, float until, float seconds)
+        {
+            if (image == null)
+                return;
+            Color color = image.color;
+            float remain = until - Time.unscaledTime;
+            color.a = seconds <= 0f || remain <= 0f ? 0f : Mathf.Clamp01(remain / seconds);
+            image.color = color;
+        }
+
+        LabeledButton BuildAssassinateButton(Transform parent)
+        {
+            float height = assassin.ButtonHeight;
+            GameObject item = new GameObject("Assassinate", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+            item.transform.SetParent(parent, false);
+            Image face = item.GetComponent<Image>();
+            face.color = Color.white;
+            face.sprite = SolidSprite();
+            LayoutElement element = item.GetComponent<LayoutElement>();
+            element.minHeight = height;
+            element.preferredHeight = height;
+            element.flexibleWidth = 1f;
+            Button button = item.GetComponent<Button>();
+            StyleButton(button);
+            button.onClick.AddListener(Assassinate);
+            GameObject fillObject = new GameObject("Cooldown", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+            fillObject.transform.SetParent(item.transform, false);
+            fillObject.GetComponent<LayoutElement>().ignoreLayout = true;
+            Stretch(fillObject.GetComponent<RectTransform>());
+            assassinateFill = fillObject.GetComponent<Image>();
+            assassinateFill.sprite = SolidSprite();
+            assassinateFill.type = Image.Type.Filled;
+            assassinateFill.fillMethod = Image.FillMethod.Radial360;
+            assassinateFill.fillOrigin = (int)Image.Origin360.Top;
+            assassinateFill.fillClockwise = true;
+            assassinateFill.fillAmount = 0f;
+            assassinateFill.raycastTarget = false;
+            Color fill = presentation.Critical;
+            fill.a = presentation.GlowAlpha;
+            assassinateFill.color = fill;
+            float labelHeight = height - presentation.Spacing;
+            if (labelHeight < presentation.BodyMinHeight)
+                labelHeight = presentation.BodyMinHeight;
+            Text label = MakeText(item.transform, assassin.LabelSize, labelHeight, presentation.Critical);
+            Stretch(label.rectTransform);
+            label.alignment = TextAnchor.MiddleCenter;
+            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            label.text = assassin.Display;
+            label.GetComponent<LayoutElement>().ignoreLayout = true;
+            return new LabeledButton
+            {
+                Button = button,
+                Label = label,
+                Rect = item.GetComponent<RectTransform>(),
+            };
+        }
+
+        Sprite SolidSprite()
+        {
+            if (solidSprite != null)
+                return solidSprite;
+            Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            texture.SetPixels(new Color[] { Color.white, Color.white, Color.white, Color.white });
+            texture.Apply();
+            texture.filterMode = FilterMode.Point;
+            texture.wrapMode = TextureWrapMode.Clamp;
+            solidSprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, texture.width, texture.height),
+                new Vector2(0.5f, 0.5f),
+                presentation.PixelsPerUnit);
+            return solidSprite;
         }
 
         static void Stretch(RectTransform rect)

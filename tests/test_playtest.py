@@ -48,6 +48,11 @@ EVENTS = (
     "prestige_trigger",
     "relic_purchase",
     "offline_earning_collected",
+    "assassinate_triggered",
+    "backstab_triggered",
+    "hvt_spawned",
+    "hvt_completed",
+    "hvt_failed",
 )
 
 

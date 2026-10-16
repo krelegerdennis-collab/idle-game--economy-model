@@ -37,6 +37,8 @@ def test_presentation_bundle_matches_the_schema():
     assert layout["generatorRowHeight"] == 72
     assert 60 <= layout["generatorRowHeight"] <= 80
     assert bundle["presentation"]["copy"]["shop"] == "Shop"
+    assert bundle["presentation"]["copy"]["contract"] in ("Contract", "Shadow Contract")
+    assert bundle["presentation"]["art"]["stageBackground"] == "Sprites/Backgrounds/cyberpunk_city.png"
     slots = [item["slot"] for item in bundle["cosmetics"]["items"]]
     assert slots == ["hat", "cape", "weapon"]
     assert any(item["is_premium"] for item in bundle["cosmetics"]["items"])
@@ -49,11 +51,12 @@ def test_presentation_files_do_not_enter_the_economy():
     assert "cosmetics.json" not in DATA_FILES
     assert "season_pass.json" not in DATA_FILES
     assert "presentation.json" not in DATA_FILES
+    assert "assassin.json" not in DATA_FILES
     assert data_fingerprint(DATA) == FROZEN_FINGERPRINT
 
 
 def test_streaming_presentation_matches_data():
-    for name in ("presentation.json", "cosmetics.json", "season_pass.json"):
+    for name in ("presentation.json", "cosmetics.json", "season_pass.json", "assassin.json"):
         assert (STREAMING / name).read_bytes() == (DATA / name).read_bytes()
 
 
@@ -226,6 +229,63 @@ def test_portrait_bands_come_from_presentation_not_literals():
     assert "allowedAutorotateToLandscapeRight: 0" in settings
     assert "allowedAutorotateToLandscapeLeft: 0" in settings
     assert "activeInputHandler: 2" in settings
+
+
+def test_assassin_hooks_stay_outside_the_frozen_curve():
+    payload = json.loads((DATA / "assassin.json").read_text(encoding="utf-8"))
+    streaming = (STREAMING / "assassin.json").read_bytes()
+    assert streaming == (DATA / "assassin.json").read_bytes()
+    assert "assassin.json" not in DATA_FILES
+    assert data_fingerprint(DATA) == FROZEN_FINGERPRINT
+    assassinate = payload["assassinate"]
+    target = payload["highValueTarget"]
+    motion = payload["backgroundMotion"]
+    assert assassinate["display"] == "ASSASSINATE"
+    assert assassinate["baseAmount"] == 100
+    assert assassinate["perGenerator"] == 0.1
+    assert assassinate["cooldownSeconds"] == 5
+    assert assassinate["backstabChance"] == 0.15
+    assert assassinate["backstabMultiplier"] == 3
+    assert assassinate["backstabLabel"] == "BACKSTAB! {amount} MARKS"
+    assert target["title"] == "HIGH-VALUE TARGET"
+    assert target["firstDelaySeconds"] == 300
+    assert target["intervalSeconds"] == 300
+    assert target["windowSeconds"] == 60
+    assert target["tapsRequired"] == 5
+    assert target["reward"] == 5000
+    assert target["failCooldownSeconds"] == 600
+    assert motion["amplitude"] == 0.04
+    assert motion["periodSeconds"] == 18
+    assert payload["vignetteAlpha"] == 0.45
+    owned = [stop["owned"] for stop in payload["skyTints"]]
+    assert owned == [0, 50, 100]
+    presentation = json.loads((DATA / "presentation.json").read_text(encoding="utf-8"))
+    assert presentation["copy"]["contract"] != target["title"]
+    burst = assassinate["baseAmount"] * (1 + 10 * assassinate["perGenerator"])
+    assert burst == pytest.approx(200)
+    assert burst * assassinate["backstabMultiplier"] == pytest.approx(600)
+    assets = ROOT / "unity" / "Playtest" / "Assets"
+    blob = "\n".join(path.read_text(encoding="utf-8") for path in assets.rglob("*.cs"))
+    forbidden = [
+        assassinate["display"],
+        assassinate["backstabLabel"],
+        target["title"],
+        "0.15",
+        "0.04",
+        "0.45",
+        "5000",
+        "0.1",
+    ]
+    for stop in payload["skyTints"]:
+        forbidden.append(stop["color"])
+    for literal in forbidden:
+        assert literal not in blob
+    assert "Radial360" in blob
+    assert "GrantCurrency" in blob
+    assert "TintForOwned" in blob
+    model_blob = "\n".join(path.read_text(encoding="utf-8") for path in (ROOT / "model").rglob("*.py"))
+    assert "assassinate" not in model_blob
+    assert "highValueTarget" not in model_blob
 
 
 def test_layout_anchors_and_row_height_are_required(tmp_path: Path):

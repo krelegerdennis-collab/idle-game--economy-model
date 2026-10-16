@@ -106,7 +106,7 @@
     }
   },
   "art": {
-    "stageBackground": "Sprites/Backgrounds/fairy_forest.png",
+    "stageBackground": "Sprites/Backgrounds/cyberpunk_city.png",
     "currencyIcon": "Sprites/UI/coin.png",
     "insightIcon": "Sprites/UI/insight_crystal.png",
     "prestigeIcon": "Sprites/UI/prestige_button.png",

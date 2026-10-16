@@ -227,7 +227,10 @@ Idle, Attack, Celebrate, and Hurt. Each actor is an Image on the UI
 canvas, in the middle band described under UI Layout. The hero is the
 rogue, one large Image on the top-right of the fight scene. Enemies sit
 in the left and center of that stage, large enough to read. The backdrop
-is a full-screen Image with preserve aspect off, behind the bands. The
+is the supplied cyberpunk city,
+`unity/Playtest/Assets/Sprites/Backgrounds/cyberpunk_city.png`,
+drawn as a full-screen Image with preserve aspect off, behind the bands.
+The same PNG bytes are copied under StreamingAssets. The
 five classes in `art.classes` stay in the data. The client does not draw
 them and does not swap the picture. `art.defaultClass` is `rogue`, and
 `actors.hero.sprite_path` is that same sprite. `art.classPrefKey` is
@@ -248,6 +251,54 @@ generator purchase that lands on an owned-copy milestone from the export.
 Confetti plays on that milestone and on prestige. The boss track starts
 once lifetime currency reaches `bossApproachRatio` of the lifetime the
 exported prestige formula needs for `minPointsToPrestige`.
+
+## Assassin Theme
+
+Assassinate and the timed high-value target are playtest-only. The frozen
+simulation does not grant either payout, so playtest currency and lifetime
+diverge from the curve once a player uses them. `data/assassin.json` holds
+every new number and string. A byte-identical copy sits in StreamingAssets.
+`data_fingerprint` skips `assassin.json` next to `presentation.json`, and
+`model/load.py` does not list it in `DATA_FILES`. Do not add the payout to
+the Python sim, and do not regenerate `exports/runs/baseline.json`.
+
+The economy contract is unchanged. Dip and peak purchase stay on the
+exported branch, and the sim still declines the offer by default. The
+contract button keeps the display string `Contract`. It is not the timed
+target. That target is a separate widget.
+
+The Assassinate button is the large control at the bottom center. Its
+label and the backstab flash use the critical color already loaded from
+the presentation theme. The burst is `baseAmount * (1 + total owned
+generators * perGenerator)`. A backstab, rolled with `UnityEngine.Random`
+against `backstabChance`, multiplies that burst by `backstabMultiplier`,
+shakes the screen, and floats `backstabLabel`. The button shows a radial
+fill for `cooldownSeconds` and does not accept taps while it is cooling
+down. The grant is added to currency and lifetime the same way offline
+pay adds them.
+
+The high-value target starts its timer when play begins. After
+`firstDelaySeconds` the widget appears at the top right of the fight
+scene with the title and the seconds left in `windowSeconds`. Only
+Assassinate taps during that window count. Five taps, from `tapsRequired`,
+grant `reward` to currency and lifetime, play the existing gold confetti,
+and log `hvt_completed`. The next spawn waits `intervalSeconds`. If the
+window times out, the widget hides, the log records `hvt_failed`, and the
+next spawn waits `failCooldownSeconds`. Appearance logs `hvt_spawned`.
+An Assassinate tap logs `assassinate_triggered` with the player id, an
+ISO-8601 UTC timestamp, the amount, and whether it was a backstab.
+`backstab_triggered` is logged only when the roll hits.
+
+The city image drifts left and right. `backgroundMotion.amplitude` is a
+fraction of the canvas width and `periodSeconds` is one full ping-pong.
+The picture itself is not a new drawing. A vignette is a runtime texture,
+not a painted file: `presentation.Background` darkens the edges at
+`vignetteAlpha`, and the center stays clear. Sky tint lerps
+`background Image.color` through the `skyTints` stops by total generators
+owned (0, 50, 100). The blend is smooth. Prestige does not retune the
+economy. A fullscreen white flash lasts `prestigeFlashSeconds`.
+
+Unity Editor was not run for these hooks, so Play mode was not checked.
 
 ## UI Layout
 
@@ -283,14 +334,18 @@ fractions:
   background Image does not.
 - Bottom, from `bottomAnchor` (0.0) to `middleAnchor` (0.15). A clear
   strip, not a black panel. The contract button stays on the left and is
-  shown only while the offer is open. Prestige stays on the right. Shop
-  sits in the center and opens the relic list in the generator slot. It
-  is not a store and it does not sell anything. Season and cosmetic lines
+  shown only while the offer is open. The large Assassinate button is the
+  bottom-center control. Prestige stays on the right, and the shop button
+  sits on that same side. Shop opens the relic list in the generator slot.
+  It is not a store and it does not sell anything. Season and cosmetic lines
   sit in that list. These controls stay below the rogue.
 
 A full-screen background Image is parented to the canvas behind the
-bands. Preserve aspect is off. Point filtering and no compression come
-from the sprite importer. The top bar uses the theme background color so
+bands. It is `Sprites/Backgrounds/cyberpunk_city.png`. Preserve aspect is
+off. The rect drifts for the slow parallax in Assassin Theme, and a
+vignette sits above the picture and below the bands. Point filtering and
+no compression come from the sprite importer. A sprite loaded with
+`LoadImage` at runtime uses point filtering too. The top bar uses the theme background color so
 the numbers stay readable. The middle and bottom stay clear so the stage
 art shows through. Class choice does not change the picture.
 

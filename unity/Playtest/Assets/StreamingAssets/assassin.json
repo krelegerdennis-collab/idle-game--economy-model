@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "assassinate": {
+    "display": "ASSASSINATE",
+    "baseAmount": 100,
+    "perGenerator": 0.1,
+    "cooldownSeconds": 5,
+    "backstabChance": 0.15,
+    "backstabMultiplier": 3,
+    "backstabLabel": "BACKSTAB! {amount} MARKS",
+    "backstabFlashSeconds": 0.28,
+    "buttonHeight": 160,
+    "buttonWidthFraction": 0.34,
+    "labelSize": 32
+  },
+  "highValueTarget": {
+    "title": "HIGH-VALUE TARGET",
+    "firstDelaySeconds": 300,
+    "intervalSeconds": 300,
+    "windowSeconds": 60,
+    "tapsRequired": 5,
+    "reward": 5000,
+    "failCooldownSeconds": 600
+  },
+  "backgroundMotion": {
+    "amplitude": 0.04,
+    "periodSeconds": 18
+  },
+  "vignetteAlpha": 0.45,
+  "vignetteTexels": 64,
+  "vignetteInner": 0.42,
+  "skyTints": [
+    {"owned": 0, "color": "#3E5C94"},
+    {"owned": 50, "color": "#7A3EAE"},
+    {"owned": 100, "color": "#FF2D55"}
+  ],
+  "prestigeFlashSeconds": 0.35
+}

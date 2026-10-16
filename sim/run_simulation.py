@@ -431,6 +431,7 @@ _FINGERPRINT_SKIP = frozenset(
         "cosmetics.json",
         "season_pass.json",
         "presentation.json",
+        "assassin.json",
     }
 )
 
