@@ -30,7 +30,7 @@ def test_presentation_bundle_matches_the_schema():
     assert layout["referenceHeight"] == 1920
     assert layout["matchWidthOrHeight"] == 0.5
     assert layout["topAnchor"] == 0.9
-    assert layout["middleAnchor"] == 0.4
+    assert layout["middleAnchor"] == 0.15
     assert layout["bottomAnchor"] == 0.0
     assert layout["actorSplit"] == 0.5
     assert layout["heroScale"] == 0.85
@@ -72,7 +72,15 @@ def test_class_sprites_are_transparent_pngs():
     bundle = load_bundle()
     classes = bundle["presentation"]["art"]["classes"]
     assert [item["id"] for item in classes] == ["swordsman", "mage", "summoner", "archer", "rogue"]
-    assert bundle["presentation"]["art"]["defaultClass"] == "swordsman"
+    assert bundle["presentation"]["art"]["defaultClass"] == "rogue"
+    hero = bundle["presentation"]["actors"]["hero"]
+    rogue = next(item for item in classes if item["id"] == "rogue")
+    assert hero["sprite_path"] == rogue["sprite_path"]
+    controller = (ROOT / "unity" / "Playtest" / "Assets" / "PlaytestController.cs").read_text(encoding="utf-8")
+    assert "DefaultClass" in controller
+    assert "BuildClassRow" not in controller
+    assert "SelectClass" not in controller
+    assert "ClassPrefKey" not in controller
     paths = [item["sprite_path"] for item in classes]
     paths.extend(
         enemy["sprite_path"] for enemy in bundle["presentation"]["actors"]["enemies"]

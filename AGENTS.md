@@ -224,17 +224,18 @@ array that has a clip. The game stays silent until clips are assigned.
 
 Actors use `Assets/Resources/Animators/PixelActor.controller` with states
 Idle, Attack, Celebrate, and Hurt. Each actor is an Image on the UI
-canvas, in the middle band described under UI Layout. Enemies fill the
-upper half of that stage. The selected class fills most of the lower
-half and stays slightly smaller. The backdrop is a full-screen Image
-with preserve aspect off, behind the bands. The five classes in
-`art.classes` are skins of the same main character. The chosen id is
-stored under `art.classPrefKey` and does not change production. Enemy,
-UI, and background PNGs are cut from the same sheet into
-`Assets/Sprites/` and copied to StreamingAssets. Those textures import
-with point filtering and compression set to none. A loaded sprite is
-drawn at its own colors. The actor `color` is only the rectangle
-fallback.
+canvas, in the middle band described under UI Layout. The hero is the
+rogue, one large Image on the top-right of the fight scene. Enemies sit
+in the left and center of that stage, large enough to read. The backdrop
+is a full-screen Image with preserve aspect off, behind the bands. The
+five classes in `art.classes` stay in the data. The client does not draw
+them and does not swap the picture. `art.defaultClass` is `rogue`, and
+`actors.hero.sprite_path` is that same sprite. `art.classPrefKey` is
+unused and does not change production. Enemy, UI, and background PNGs
+are cut from the same sheet into `Assets/Sprites/` and copied to
+StreamingAssets. Those textures import with point filtering and
+compression set to none. A loaded sprite is drawn at its own colors. The
+actor `color` is only the rectangle fallback.
 
 TextMeshPro draws the floating numbers. Unity 2022 still needs its own TMP
 package (`com.unity.textmeshpro` in `Packages/manifest.json`). If the font
@@ -265,39 +266,42 @@ fractions:
   the left with the coin icon, large and bold (`type.currencySize`).
   Session time in the center (`type.bodySize`). Insight on the right
   with the crystal icon.
-- Middle, from `middleAnchor` (0.4) to `topAnchor` (0.9). The five class
-  skins sit on a row at the top of this band (`type.classButton`). Under
-  that row, `actorSplit` (0.5) divides the remaining stage in half.
-  Enemies are centered in the upper half and fill it. The selected hero
-  is centered in the lower half and fills `heroScale` (0.85) of that
-  half, so the portrait stays slightly smaller than the enemy band.
-- Bottom, from `bottomAnchor` (0.0) to `middleAnchor` (0.4). Generator
-  rows sit in a vertical scroll. Each row shows the name, the owned
-  count, the cost, and a progress bar tinted with the currency color and
-  outlined with the bar color. Row height is `layout.generatorRowHeight`
-  (72, inside 60–80). On 1080×1920 the bottom band is 768 px. After the
-  shop row, the contract/prestige row, and `layout.padding`, about five
-  of those rows fit and the sixth starts the scroll. The contract button
-  stays on the left and Prestige on the right, fixed under the scroll.
-  The contract button is shown only while the offer is open. A small Shop
-  button at the top-right of this band opens the relic list. It is not a
-  store and it does not sell anything. Season and cosmetic lines sit in
-  that same list.
+- Middle, from `middleAnchor` (0.15) to `topAnchor` (0.9). This is the
+  fight scene. There is no class picker and no row of class Images. The
+  hero is always the rogue (`art.defaultClass`). One large Image is
+  anchored to the top-right of the stage. Its height is `heroScale`
+  (0.85) of that stage, and its width follows `actors.hero` width and
+  height so the pixel art keeps its aspect. `actorSplit` (0.5) keeps the
+  hero on the right. Enemies are Images in the left and center, scaled
+  from their width and height so they stay readable, and they do not sit
+  under the rogue or the buttons. Generator buys are buttons on this same
+  band, under the stage. Each button shows the name, the owned count, and
+  the cost, tinted with the theme button colors. Row height is
+  `layout.generatorRowHeight` (72, inside 60–80). About five rows fit on
+  the reference portrait; the rest scroll, and the list opens on the
+  first generator. The character Image uses preserve aspect. The
+  background Image does not.
+- Bottom, from `bottomAnchor` (0.0) to `middleAnchor` (0.15). A clear
+  strip, not a black panel. The contract button stays on the left and is
+  shown only while the offer is open. Prestige stays on the right. Shop
+  sits in the center and opens the relic list in the generator slot. It
+  is not a store and it does not sell anything. Season and cosmetic lines
+  sit in that list. These controls stay below the rogue.
 
 A full-screen background Image is parented to the canvas behind the
 bands. Preserve aspect is off. Point filtering and no compression come
-from the sprite importer. Top and bottom bars use the theme background
-color so the numbers stay readable. The middle band stays clear so the
-stage art shows through.
+from the sprite importer. The top bar uses the theme background color so
+the numbers stay readable. The middle and bottom stay clear so the stage
+art shows through. Class choice does not change the picture.
 
 `ProjectSettings` `defaultScreenOrientation` is `0`. In Unity 2022.3
 `UIOrientation` that value is Portrait. PortraitUpsideDown is 1,
 LandscapeRight is 2, LandscapeLeft is 3, and AutoRotation is 4. Portrait
 autorotation is allowed. Landscape is not. `activeInputHandler` stays 2.
 
-The generator list and the relic list may scroll. The top bar and the
-middle band do not. Padding and spacing inside the bands come from
-`layout.padding` and `layout.spacing`.
+The generator list scrolls only when a row does not fit. The relic list
+may scroll. The top bar does not. Padding and spacing inside the bands
+come from `layout.padding` and `layout.spacing`.
 
 Audio stays silent until real files are assigned: WAV effects in
 `unity/Playtest/Assets/Audio/SFX/` and MP3 music in

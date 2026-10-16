@@ -32,7 +32,7 @@
     "stageFraction": 0.22,
     "matchWidthOrHeight": 0.5,
     "topAnchor": 0.9,
-    "middleAnchor": 0.4,
+    "middleAnchor": 0.15,
     "bottomAnchor": 0.0,
     "generatorRowHeight": 72,
     "actorSplit": 0.5,
@@ -87,16 +87,16 @@
     "hero": {
       "id": "hero",
       "color": "#7AD7FF",
-      "width": 96,
-      "height": 128,
+      "width": 143,
+      "height": 243,
       "x": -1.6,
       "y": 3.9,
-      "sprite_path": "Sprites/Characters/swordsman.png"
+      "sprite_path": "Sprites/Characters/rogue.png"
     },
     "enemies": [
-      {"id": "slime", "color": "#7CFF6B", "width": 80, "height": 64, "x": -0.2, "y": 3.4, "sprite_path": "Sprites/Enemies/slime.png"},
-      {"id": "dragon", "color": "#FF5A7A", "width": 120, "height": 96, "x": 1.1, "y": 3.7, "sprite_path": "Sprites/Enemies/dragon.png"},
-      {"id": "mech", "color": "#C0C8D8", "width": 112, "height": 112, "x": 2.2, "y": 3.5, "sprite_path": "Sprites/Enemies/mecha.png"}
+      {"id": "slime", "color": "#7CFF6B", "width": 131, "height": 102, "x": -0.2, "y": 3.4, "sprite_path": "Sprites/Enemies/slime.png"},
+      {"id": "dragon", "color": "#FF5A7A", "width": 146, "height": 153, "x": 1.1, "y": 3.7, "sprite_path": "Sprites/Enemies/dragon.png"},
+      {"id": "mech", "color": "#C0C8D8", "width": 105, "height": 160, "x": 2.2, "y": 3.5, "sprite_path": "Sprites/Enemies/mecha.png"}
     ],
     "poses": {
       "Idle": 1,
@@ -111,7 +111,7 @@
     "insightIcon": "Sprites/UI/insight_crystal.png",
     "prestigeIcon": "Sprites/UI/prestige_button.png",
     "classPrefKey": "playtest_class",
-    "defaultClass": "swordsman",
+    "defaultClass": "rogue",
     "classes": [
       {"id": "swordsman", "name": "Swordsman", "sprite_path": "Sprites/Characters/swordsman.png"},
       {"id": "mage", "name": "Mage", "sprite_path": "Sprites/Characters/mage.png"},
