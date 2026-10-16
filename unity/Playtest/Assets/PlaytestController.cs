@@ -39,7 +39,7 @@ namespace Playtest
         PlaytestState state;
         AnalyticsBridge analytics;
         ExportLogs exportLogs;
-        AudioManager audio;
+        AudioManager audioManager;
         PresentationFeedback feedback;
         CharacterController hero;
         EnemyController enemies;
@@ -193,8 +193,8 @@ namespace Playtest
             Camera view = Camera.main;
             if (view != null)
                 view.backgroundColor = presentation.Background;
-            audio = ScriptableObject.CreateInstance<AudioManager>();
-            audio.Open(presentation, gameObject);
+            audioManager = ScriptableObject.CreateInstance<AudioManager>();
+            audioManager.Open(presentation, gameObject);
             selectedClass = presentation.DefaultClass;
             if (!string.IsNullOrEmpty(presentation.ClassPrefKey) && PlayerPrefs.HasKey(presentation.ClassPrefKey))
             {
@@ -223,8 +223,8 @@ namespace Playtest
             if (dt > ForegroundGapSeconds)
                 dt = 0.0;
             state.Tick(dt);
-            if (audio != null)
-                audio.SetBoss(ApproachingPrestige());
+            if (audioManager != null)
+                audioManager.SetBoss(ApproachingPrestige());
             SyncOffers();
             Refresh();
         }
@@ -386,8 +386,8 @@ namespace Playtest
                     presentation.Currency,
                     prestigeButton == null ? null : prestigeButton.Rect);
             }
-            if (audio != null)
-                audio.PlayCrit();
+            if (audioManager != null)
+                audioManager.PlayCrit();
             if (hero != null)
                 hero.Cue(presentation.PrestigeHero);
             if (enemies != null)
@@ -408,12 +408,12 @@ namespace Playtest
                 if (milestone)
                     feedback.Confetti();
             }
-            if (audio != null)
+            if (audioManager != null)
             {
                 if (large)
-                    audio.PlayCrit();
+                    audioManager.PlayCrit();
                 else
-                    audio.PlayUpgrade();
+                    audioManager.PlayUpgrade();
             }
             if (hero != null)
                 hero.Cue(milestone ? presentation.MilestoneHero : presentation.PurchaseHero);
@@ -744,8 +744,8 @@ namespace Playtest
                 Button button = item.GetComponent<Button>();
                 button.onClick.AddListener(() =>
                 {
-                    if (audio != null)
-                        audio.PlayClick();
+                    if (audioManager != null)
+                        audioManager.PlayClick();
                     SelectClass(classId);
                 });
             }
@@ -825,7 +825,7 @@ namespace Playtest
                 iconElement.preferredWidth = height;
                 iconElement.minHeight = height;
             }
-            Text text = MakeText(row, size, height, color);
+            Text text = MakeText(row.transform, size, height, color);
             LayoutElement textElement = text.GetComponent<LayoutElement>();
             textElement.minWidth = presentation.ReferenceWidth * 0.5f;
             textElement.flexibleWidth = 1f;
@@ -900,8 +900,8 @@ namespace Playtest
             button.colors = colors;
             button.onClick.AddListener(() =>
             {
-                if (audio != null)
-                    audio.PlayClick();
+                if (audioManager != null)
+                    audioManager.PlayClick();
             });
             button.onClick.AddListener(action);
             Text label = MakeText(item.transform, presentation.BodySize, height - presentation.Spacing, presentation.ButtonText);
