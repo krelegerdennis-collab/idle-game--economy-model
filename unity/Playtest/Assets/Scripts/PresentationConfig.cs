@@ -55,6 +55,12 @@ namespace Playtest
         public float Spacing;
         public float StageFraction;
         public float MatchWidthOrHeight;
+        public float TopAnchor;
+        public float MiddleAnchor;
+        public float BottomAnchor;
+        public float GeneratorRowHeight;
+        public float ActorSplit;
+        public float HeroScale;
 
         public float FloatSeconds;
         public float FloatRise;
@@ -101,6 +107,7 @@ namespace Playtest
         public string PeakLabel;
         public string PremiumLabel;
         public string SeasonLabel;
+        public string ShopLabel;
 
         public string StageBackground;
         public string CurrencyIcon;
@@ -213,6 +220,12 @@ namespace Playtest
                 Spacing = RequiredFloat(layout, "spacing", "presentation.json"),
                 StageFraction = RequiredFloat(layout, "stageFraction", "presentation.json"),
                 MatchWidthOrHeight = RequiredFloat(layout, "matchWidthOrHeight", "presentation.json"),
+                TopAnchor = RequiredFloat(layout, "topAnchor", "presentation.json"),
+                MiddleAnchor = RequiredFloat(layout, "middleAnchor", "presentation.json"),
+                BottomAnchor = RequiredFloat(layout, "bottomAnchor", "presentation.json"),
+                GeneratorRowHeight = RequiredFloat(layout, "generatorRowHeight", "presentation.json"),
+                ActorSplit = RequiredFloat(layout, "actorSplit", "presentation.json"),
+                HeroScale = RequiredFloat(layout, "heroScale", "presentation.json"),
                 FloatSeconds = RequiredFloat(feedback, "floatSeconds", "presentation.json"),
                 FloatRise = RequiredFloat(feedback, "floatRise", "presentation.json"),
                 ShakeSeconds = RequiredFloat(feedback, "shakeSeconds", "presentation.json"),
@@ -255,6 +268,7 @@ namespace Playtest
                 PeakLabel = RequiredString(copy, "peak", "presentation.json"),
                 PremiumLabel = RequiredString(copy, "premium", "presentation.json"),
                 SeasonLabel = RequiredString(copy, "season", "presentation.json"),
+                ShopLabel = RequiredString(copy, "shop", "presentation.json"),
                 StageBackground = RequiredString(art, "stageBackground", "presentation.json"),
                 CurrencyIcon = RequiredString(art, "currencyIcon", "presentation.json"),
                 InsightIcon = RequiredString(art, "insightIcon", "presentation.json"),

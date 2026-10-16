@@ -224,15 +224,17 @@ array that has a clip. The game stays silent until clips are assigned.
 
 Actors use `Assets/Resources/Animators/PixelActor.controller` with states
 Idle, Attack, Celebrate, and Hurt. Each actor is an Image on the UI
-canvas. The selected class is anchored at the bottom of the screen, and
-enemies stand in a row above that hero. The backdrop is a full-screen
-Image with preserve aspect off. The five classes in `art.classes`
-are skins of the same main character. The chosen id is stored under
-`art.classPrefKey` and does not change production. Enemy, UI, and
-background PNGs are cut from the same sheet into `Assets/Sprites/` and
-copied to StreamingAssets. Those textures import with point filtering and
-compression set to none. A loaded sprite is drawn at its own colors.
-The actor `color` is only the rectangle fallback.
+canvas, in the middle band described under UI Layout. Enemies fill the
+upper half of that stage. The selected class fills most of the lower
+half and stays slightly smaller. The backdrop is a full-screen Image
+with preserve aspect off, behind the bands. The five classes in
+`art.classes` are skins of the same main character. The chosen id is
+stored under `art.classPrefKey` and does not change production. Enemy,
+UI, and background PNGs are cut from the same sheet into
+`Assets/Sprites/` and copied to StreamingAssets. Those textures import
+with point filtering and compression set to none. A loaded sprite is
+drawn at its own colors. The actor `color` is only the rectangle
+fallback.
 
 TextMeshPro draws the floating numbers. Unity 2022 still needs its own TMP
 package (`com.unity.textmeshpro` in `Packages/manifest.json`). If the font
@@ -245,3 +247,64 @@ generator purchase that lands on an owned-copy milestone from the export.
 Confetti plays on that milestone and on prestige. The boss track starts
 once lifetime currency reaches `bossApproachRatio` of the lifetime the
 exported prestige formula needs for `minPointsToPrestige`.
+
+## UI Layout
+
+The playtest is one portrait screen. `PlaytestController` builds a single
+Canvas with Render Mode Screen Space - Overlay. The CanvasScaler uses
+Scale With Screen Size. Reference resolution and match come from
+`data/presentation.json`: `layout.referenceWidth` 1080,
+`layout.referenceHeight` 1920, and `layout.matchWidthOrHeight` 0.5.
+C# reads those fields. It does not hardcode them.
+
+Three bands divide the screen. Their edges are anchors from the same
+`layout` object, so 1080×1920 and a taller 1080×2400 phone keep the same
+fractions:
+
+- Top, from `topAnchor` (0.9) to the top of the screen. Soft currency on
+  the left with the coin icon, large and bold (`type.currencySize`).
+  Session time in the center (`type.bodySize`). Insight on the right
+  with the crystal icon.
+- Middle, from `middleAnchor` (0.4) to `topAnchor` (0.9). The five class
+  skins sit on a row at the top of this band (`type.classButton`). Under
+  that row, `actorSplit` (0.5) divides the remaining stage in half.
+  Enemies are centered in the upper half and fill it. The selected hero
+  is centered in the lower half and fills `heroScale` (0.85) of that
+  half, so the portrait stays slightly smaller than the enemy band.
+- Bottom, from `bottomAnchor` (0.0) to `middleAnchor` (0.4). Generator
+  rows sit in a vertical scroll. Each row shows the name, the owned
+  count, the cost, and a progress bar tinted with the currency color and
+  outlined with the bar color. Row height is `layout.generatorRowHeight`
+  (72, inside 60–80). On 1080×1920 the bottom band is 768 px. After the
+  shop row, the contract/prestige row, and `layout.padding`, about five
+  of those rows fit and the sixth starts the scroll. The contract button
+  stays on the left and Prestige on the right, fixed under the scroll.
+  The contract button is shown only while the offer is open. A small Shop
+  button at the top-right of this band opens the relic list. It is not a
+  store and it does not sell anything. Season and cosmetic lines sit in
+  that same list.
+
+A full-screen background Image is parented to the canvas behind the
+bands. Preserve aspect is off. Point filtering and no compression come
+from the sprite importer. Top and bottom bars use the theme background
+color so the numbers stay readable. The middle band stays clear so the
+stage art shows through.
+
+`ProjectSettings` `defaultScreenOrientation` is `0`. In Unity 2022.3
+`UIOrientation` that value is Portrait. PortraitUpsideDown is 1,
+LandscapeRight is 2, LandscapeLeft is 3, and AutoRotation is 4. Portrait
+autorotation is allowed. Landscape is not. `activeInputHandler` stays 2.
+
+The generator list and the relic list may scroll. The top bar and the
+middle band do not. Padding and spacing inside the bands come from
+`layout.padding` and `layout.spacing`.
+
+Audio stays silent until real files are assigned: WAV effects in
+`unity/Playtest/Assets/Audio/SFX/` and MP3 music in
+`unity/Playtest/Assets/Audio/Music/`. `AudioManager` keeps `musicClips`
+and `sfxClips` empty until those clips exist, and it does not synthesize
+a tone.
+
+Unity Editor was not run for this layout, so Game View and an Android
+build were not checked. The anchors are resolution-independent by
+construction.

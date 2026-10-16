@@ -25,6 +25,18 @@ def test_presentation_bundle_matches_the_schema():
     assert theme["critical"] == "#FF69B4"
     assert bundle["presentation"]["type"]["currencySize"] >= 48
     assert bundle["presentation"]["type"]["generatorSize"] >= 24
+    layout = bundle["presentation"]["layout"]
+    assert layout["referenceWidth"] == 1080
+    assert layout["referenceHeight"] == 1920
+    assert layout["matchWidthOrHeight"] == 0.5
+    assert layout["topAnchor"] == 0.9
+    assert layout["middleAnchor"] == 0.4
+    assert layout["bottomAnchor"] == 0.0
+    assert layout["actorSplit"] == 0.5
+    assert layout["heroScale"] == 0.85
+    assert layout["generatorRowHeight"] == 72
+    assert 60 <= layout["generatorRowHeight"] <= 80
+    assert bundle["presentation"]["copy"]["shop"] == "Shop"
     slots = [item["slot"] for item in bundle["cosmetics"]["items"]]
     assert slots == ["hat", "cape", "weapon"]
     assert any(item["is_premium"] for item in bundle["cosmetics"]["items"])
@@ -174,6 +186,55 @@ def test_playtest_is_silent_without_clips_and_draws_actors_on_the_canvas():
         text = meta.read_text(encoding="utf-8")
         assert "filterMode: 0" in text
         assert "textureCompression: 0" in text
+
+
+def test_portrait_bands_come_from_presentation_not_literals():
+    assets = ROOT / "unity" / "Playtest" / "Assets"
+    blob = "\n".join(path.read_text(encoding="utf-8") for path in assets.rglob("*.cs"))
+    config = (assets / "Scripts" / "PresentationConfig.cs").read_text(encoding="utf-8")
+    controller = (assets / "PlaytestController.cs").read_text(encoding="utf-8")
+    for key in (
+        "topAnchor",
+        "middleAnchor",
+        "bottomAnchor",
+        "generatorRowHeight",
+        "actorSplit",
+        "heroScale",
+    ):
+        assert key in config
+    assert "TopAnchor" in controller
+    assert "MiddleAnchor" in controller
+    assert "BottomAnchor" in controller
+    assert "GeneratorRowHeight" in controller
+    assert "ScrollRect" in controller
+    for literal in ("0.9f", "0.4f", "0.0f", "1080f", "1920f"):
+        assert literal not in blob
+    settings = (ROOT / "unity" / "Playtest" / "ProjectSettings" / "ProjectSettings.asset").read_text(
+        encoding="utf-8"
+    )
+    assert "defaultScreenOrientation: 0" in settings
+    assert "allowedAutorotateToPortrait: 1" in settings
+    assert "allowedAutorotateToPortraitUpsideDown: 0" in settings
+    assert "allowedAutorotateToLandscapeRight: 0" in settings
+    assert "allowedAutorotateToLandscapeLeft: 0" in settings
+    assert "activeInputHandler: 2" in settings
+
+
+def test_layout_anchors_and_row_height_are_required(tmp_path: Path):
+    directory = tmp_path / "data"
+    directory.mkdir()
+    for name in ("presentation.json", "cosmetics.json", "season_pass.json"):
+        (directory / name).write_text((DATA / name).read_text(encoding="utf-8"), encoding="utf-8")
+    missing = json.loads((directory / "presentation.json").read_text(encoding="utf-8"))
+    del missing["layout"]["topAnchor"]
+    (directory / "presentation.json").write_text(json.dumps(missing), encoding="utf-8")
+    with pytest.raises(ValueError, match="topAnchor"):
+        load_bundle(directory)
+    tall = json.loads((DATA / "presentation.json").read_text(encoding="utf-8"))
+    tall["layout"]["generatorRowHeight"] = 88
+    (directory / "presentation.json").write_text(json.dumps(tall), encoding="utf-8")
+    with pytest.raises(ValueError, match="generatorRowHeight"):
+        load_bundle(directory)
 
 
 def test_bad_cosmetic_slot_is_rejected(tmp_path: Path):

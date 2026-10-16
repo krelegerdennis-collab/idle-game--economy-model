@@ -9,6 +9,7 @@ PlayerSettings:
   productName: Economy Playtest
   defaultScreenWidth: 1080
   defaultScreenHeight: 1920
+  # Unity 2022.3 UIOrientation: Portrait = 0, PortraitUpsideDown = 1, LandscapeRight = 2, LandscapeLeft = 3, AutoRotation = 4.
   defaultScreenOrientation: 0
   bundleVersion: 0.1.0
   applicationIdentifier:

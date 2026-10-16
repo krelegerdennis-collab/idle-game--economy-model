@@ -27,9 +27,18 @@ namespace Playtest
         sealed class GeneratorRow
         {
             public GeneratorConfig Generator;
+            public Text Name;
             public Text Owned;
+            public Text Cost;
             public Image BarFill;
-            public LabeledButton Buy;
+            public Button Button;
+            public RectTransform Rect;
+        }
+
+        sealed class ScrollList
+        {
+            public GameObject Root;
+            public RectTransform Content;
         }
 
         EconomyConfig config;
@@ -64,6 +73,9 @@ namespace Playtest
         string selectedClass;
         Text classNameText;
         RectTransform screenCanvas;
+        RectTransform actorStage;
+        GameObject generatorScroll;
+        GameObject shopPanel;
 
         void Awake()
         {
@@ -206,7 +218,7 @@ namespace Playtest
             RectTransform shakeRoot = BuildUi();
             feedback = gameObject.AddComponent<PresentationFeedback>();
             feedback.Bind(presentation, shakeRoot, view, tmpFont, font);
-            SpawnActors(screenCanvas);
+            SpawnActors(actorStage);
             ready = true;
             OpenSession();
             SyncOffers();
@@ -333,7 +345,7 @@ namespace Playtest
                 return;
             analytics.UpgradePurchase(generator.Id, result.Cost, result.OwnedAfter, result.CurrencyAfter, state.RunActiveSeconds);
             GeneratorRow row = RowFor(generator.Id);
-            Juice(result.Cost, before, CrossedMilestone(result.OwnedAfter), row == null ? null : row.Buy.Rect);
+            Juice(result.Cost, before, CrossedMilestone(result.OwnedAfter), row == null ? null : row.Rect);
             SyncOffers();
             Refresh();
             Save();
@@ -475,24 +487,40 @@ namespace Playtest
             background.type = Image.Type.Simple;
         }
 
-        void SpawnActors(RectTransform parent)
+        void SpawnActors(RectTransform stage)
         {
+            if (stage == null || presentation == null)
+                return;
             RuntimeAnimatorController controller = Resources.Load<RuntimeAnimatorController>(presentation.AnimatorResource);
-            GameObject layerObject = new GameObject("Actors", typeof(RectTransform));
-            layerObject.transform.SetParent(parent, false);
-            layerObject.transform.SetSiblingIndex(1);
-            Stretch(layerObject.GetComponent<RectTransform>());
 
             GameObject enemyObject = new GameObject("Enemies", typeof(RectTransform));
             enemies = enemyObject.AddComponent<EnemyController>();
-            enemies.Bind(presentation, controller, pictures, layerObject.GetComponent<RectTransform>());
+            enemies.Bind(presentation, controller, pictures, stage);
 
-            GameObject heroObject = new GameObject(presentation.Hero.Id, typeof(RectTransform));
-            heroObject.transform.SetParent(layerObject.transform, false);
-            hero = heroObject.AddComponent<CharacterController>();
+            if (presentation.Hero == null)
+                return;
+            GameObject heroBand = new GameObject(presentation.Hero.Id, typeof(RectTransform));
+            heroBand.transform.SetParent(stage, false);
+            RectTransform heroRect = heroBand.GetComponent<RectTransform>();
+            heroRect.anchorMin = Vector2.zero;
+            heroRect.anchorMax = new Vector2(1f, presentation.ActorSplit);
+            heroRect.offsetMin = Vector2.zero;
+            heroRect.offsetMax = Vector2.zero;
+            heroRect.pivot = new Vector2(0.5f, 0.5f);
+            GameObject portrait = new GameObject("Portrait", typeof(RectTransform));
+            portrait.transform.SetParent(heroBand.transform, false);
+            hero = portrait.AddComponent<CharacterController>();
             hero.Bind(presentation, presentation.Hero, controller, Picture(SelectedSpritePath()));
-            hero.Pin(new Vector2(0.5f, 0f), new Vector2(0f, presentation.Padding));
-            heroObject.transform.SetAsLastSibling();
+            hero.Fit(presentation.HeroScale);
+        }
+
+        void ToggleShop()
+        {
+            if (shopPanel == null || generatorScroll == null)
+                return;
+            bool open = !shopPanel.activeSelf;
+            shopPanel.SetActive(open);
+            generatorScroll.SetActive(!open);
         }
 
         void Save()
@@ -537,14 +565,18 @@ namespace Playtest
             foreach (GeneratorRow row in generatorRows)
             {
                 int owned = state.OwnedCount(row.Generator.Id);
-                row.Owned.text = row.Generator.Id + "  " + owned.ToString(CultureInfo.InvariantCulture);
+                row.Name.text = row.Generator.Id;
+                row.Name.color = presentation.Text;
+                row.Owned.text = owned.ToString(CultureInfo.InvariantCulture);
                 row.Owned.color = presentation.Text;
                 int next = NextMilestone(owned);
                 float ratio = next <= 0 ? 0f : Mathf.Clamp01(owned / (float)next);
                 row.BarFill.rectTransform.anchorMax = new Vector2(ratio, 1f);
+                row.BarFill.color = presentation.Currency;
                 double cost = state.NextGeneratorCost(row.Generator);
-                row.Buy.Label.text = row.Generator.Id + "  " + FormatAmount(cost);
-                row.Buy.Button.interactable = state.Currency >= cost;
+                row.Cost.text = FormatAmount(cost);
+                row.Cost.color = presentation.Currency;
+                row.Button.interactable = state.Currency >= cost;
             }
             prestigeButton.Button.gameObject.SetActive(state.PrestigeAvailable());
             prestigeButton.Label.text = presentation.PrestigeLabel + "  x" + FormatAmount(state.PrestigeMultiplierAfterReset());
@@ -607,11 +639,100 @@ namespace Playtest
             screenCanvas = canvasObject.GetComponent<RectTransform>();
             BuildBackdrop(screenCanvas);
 
-            GameObject rootObject = new GameObject("Shake", typeof(RectTransform), typeof(VerticalLayoutGroup));
+            GameObject rootObject = new GameObject("Shake", typeof(RectTransform));
             rootObject.transform.SetParent(canvasObject.transform, false);
             RectTransform shakeRoot = rootObject.GetComponent<RectTransform>();
             Stretch(shakeRoot);
-            VerticalLayoutGroup column = rootObject.GetComponent<VerticalLayoutGroup>();
+
+            RectTransform top = MakeBand(shakeRoot, "Top", presentation.TopAnchor, 1f);
+            RectTransform middle = MakeBand(shakeRoot, "Middle", presentation.MiddleAnchor, presentation.TopAnchor);
+            RectTransform bottom = MakeBand(shakeRoot, "Bottom", presentation.BottomAnchor, presentation.MiddleAnchor);
+            Plate(top);
+            Plate(bottom);
+            BuildTop(top);
+            BuildMiddle(middle);
+            BuildBottom(bottom);
+            return shakeRoot;
+        }
+
+        static RectTransform MakeBand(Transform parent, string name, float yMin, float yMax)
+        {
+            GameObject item = new GameObject(name, typeof(RectTransform));
+            item.transform.SetParent(parent, false);
+            RectTransform rect = item.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0f, yMin);
+            rect.anchorMax = new Vector2(1f, yMax);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            return rect;
+        }
+
+        void Plate(RectTransform band)
+        {
+            Image plate = band.gameObject.AddComponent<Image>();
+            plate.color = presentation.Background;
+            plate.raycastTarget = false;
+        }
+
+        void BuildTop(RectTransform top)
+        {
+            HorizontalLayoutGroup row = top.gameObject.AddComponent<HorizontalLayoutGroup>();
+            row.padding = new RectOffset(presentation.Padding, presentation.Padding, presentation.Padding, presentation.Padding);
+            row.spacing = presentation.Spacing;
+            row.childAlignment = TextAnchor.MiddleCenter;
+            row.childControlWidth = true;
+            row.childControlHeight = true;
+            row.childForceExpandWidth = true;
+            row.childForceExpandHeight = true;
+            currencyText = MakeIconRow(
+                top,
+                presentation.CurrencyIcon,
+                presentation.CurrencySize,
+                presentation.CurrencyMinHeight,
+                presentation.Currency,
+                TextAnchor.MiddleLeft,
+                FontStyle.Bold);
+            timeText = MakeText(top, presentation.BodySize, presentation.BodyMinHeight, presentation.Text);
+            timeText.alignment = TextAnchor.MiddleCenter;
+            LayoutElement timeElement = timeText.GetComponent<LayoutElement>();
+            timeElement.flexibleWidth = 1f;
+            insightText = MakeIconRow(
+                top,
+                presentation.InsightIcon,
+                presentation.BodySize,
+                presentation.BodyMinHeight,
+                presentation.Text,
+                TextAnchor.MiddleRight,
+                FontStyle.Normal);
+        }
+
+        void BuildMiddle(RectTransform middle)
+        {
+            VerticalLayoutGroup column = middle.gameObject.AddComponent<VerticalLayoutGroup>();
+            column.padding = new RectOffset(presentation.Padding, presentation.Padding, presentation.Padding, presentation.Padding);
+            column.spacing = presentation.Spacing;
+            column.childAlignment = TextAnchor.UpperCenter;
+            column.childControlWidth = true;
+            column.childControlHeight = true;
+            column.childForceExpandWidth = true;
+            column.childForceExpandHeight = false;
+            BuildClassRow(middle);
+            classNameText = MakeText(middle, presentation.BodySize, presentation.BodyMinHeight, presentation.Text);
+            ClassChoice selected = presentation.FindClass(selectedClass);
+            classNameText.text = selected == null ? "" : selected.Name;
+            classNameText.alignment = TextAnchor.MiddleCenter;
+            GameObject stage = new GameObject("Stage", typeof(RectTransform), typeof(LayoutElement));
+            stage.transform.SetParent(middle, false);
+            LayoutElement stageElement = stage.GetComponent<LayoutElement>();
+            stageElement.flexibleHeight = 1f;
+            stageElement.minHeight = presentation.BodyMinHeight;
+            actorStage = stage.GetComponent<RectTransform>();
+        }
+
+        void BuildBottom(RectTransform bottom)
+        {
+            VerticalLayoutGroup column = bottom.gameObject.AddComponent<VerticalLayoutGroup>();
             column.padding = new RectOffset(presentation.Padding, presentation.Padding, presentation.Padding, presentation.Padding);
             column.spacing = presentation.Spacing;
             column.childAlignment = TextAnchor.UpperCenter;
@@ -620,35 +741,121 @@ namespace Playtest
             column.childForceExpandWidth = true;
             column.childForceExpandHeight = false;
 
-            GameObject stage = new GameObject("Stage", typeof(RectTransform), typeof(LayoutElement));
-            stage.transform.SetParent(shakeRoot, false);
-            LayoutElement stageElement = stage.GetComponent<LayoutElement>();
-            stageElement.preferredHeight = presentation.ReferenceHeight * presentation.StageFraction;
-            stageElement.minHeight = stageElement.preferredHeight;
+            GameObject shopRow = new GameObject("ShopRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+            shopRow.transform.SetParent(bottom, false);
+            HorizontalLayoutGroup shopGroup = shopRow.GetComponent<HorizontalLayoutGroup>();
+            shopGroup.padding = new RectOffset(presentation.Padding, presentation.Padding, presentation.Padding, presentation.Padding);
+            shopGroup.spacing = presentation.Spacing;
+            shopGroup.childAlignment = TextAnchor.MiddleRight;
+            shopGroup.childControlWidth = true;
+            shopGroup.childControlHeight = true;
+            shopGroup.childForceExpandWidth = false;
+            shopGroup.childForceExpandHeight = false;
+            LabeledButton shop = MakeButton(shopRow.transform, presentation.BodyMinHeight, ToggleShop);
+            shop.Label.text = presentation.ShopLabel;
+            LayoutElement shopElement = shop.Rect.GetComponent<LayoutElement>();
+            shopElement.minWidth = presentation.ButtonMinHeight;
+            shopElement.preferredWidth = presentation.ButtonMinHeight;
 
-            BuildClassRow(shakeRoot);
-            classNameText = MakeText(shakeRoot, presentation.BodySize, presentation.BodyMinHeight, presentation.Text);
-            ClassChoice selected = presentation.FindClass(selectedClass);
-            classNameText.text = selected == null ? "" : selected.Name;
-            classNameText.alignment = TextAnchor.MiddleCenter;
-
-            currencyText = MakeIconRow(shakeRoot, presentation.CurrencyIcon, presentation.CurrencySize, presentation.CurrencyMinHeight, presentation.Currency);
-            timeText = MakeText(shakeRoot, presentation.BodySize, presentation.BodyMinHeight, presentation.Text);
-            insightText = MakeIconRow(shakeRoot, presentation.InsightIcon, presentation.BodySize, presentation.BodyMinHeight, presentation.Text);
-            if (Browser())
+            ScrollList generators = BuildScroll(bottom, "Generators");
+            generatorScroll = generators.Root;
+            int iconIndex = 0;
+            foreach (GeneratorConfig generator in config.Generators)
             {
-                LabeledButton download = MakeButton(shakeRoot, presentation.ButtonMinHeight, () => exportLogs.ExportNow());
-                download.Label.text = presentation.DownloadLabel;
+                AddGeneratorRow(generators.Content, generator, iconIndex);
+                iconIndex++;
             }
 
-            GameObject scrollObject = new GameObject("Scroll", typeof(RectTransform), typeof(ScrollRect), typeof(Image), typeof(RectMask2D), typeof(LayoutElement));
-            scrollObject.transform.SetParent(shakeRoot, false);
-            scrollObject.GetComponent<Image>().color = presentation.Background;
+            ScrollList shopList = BuildScroll(bottom, "ShopPanel");
+            shopPanel = shopList.Root;
+            foreach (RelicItemConfig relic in config.Relics.Items)
+            {
+                RelicItemConfig captured = relic;
+                relicButtons[relic.Id] = MakeButton(shopList.Content, presentation.ButtonMinHeight, () => BuyRelic(captured));
+            }
+            MakeText(shopList.Content, presentation.BodySize, presentation.BodyMinHeight, presentation.Text).text =
+                presentation.SeasonLabel + "  " + seasonPass.SeasonId + "  " + seasonPass.StartDate + "  " + seasonPass.EndDate;
+            foreach (CosmeticItem item in cosmetics.Items)
+            {
+                string premium = item.Premium ? "  " + presentation.PremiumLabel : "";
+                MakeText(shopList.Content, presentation.BodySize, presentation.BodyMinHeight, presentation.Text).text =
+                    item.Name + "  " + item.Slot + premium;
+            }
+            shopPanel.SetActive(false);
+
+            GameObject actions = new GameObject("Actions", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+            actions.transform.SetParent(bottom, false);
+            LayoutElement actionElement = actions.GetComponent<LayoutElement>();
+            actionElement.minHeight = presentation.ButtonMinHeight;
+            actionElement.preferredHeight = presentation.ButtonMinHeight;
+            HorizontalLayoutGroup actionGroup = actions.GetComponent<HorizontalLayoutGroup>();
+            actionGroup.spacing = presentation.Spacing;
+            actionGroup.childAlignment = TextAnchor.MiddleCenter;
+            actionGroup.childControlWidth = true;
+            actionGroup.childControlHeight = true;
+            actionGroup.childForceExpandWidth = true;
+            actionGroup.childForceExpandHeight = true;
+            RectTransform contracts = MakeSlot(actions.transform, TextAnchor.MiddleLeft);
+            RectTransform prestigeSlot = MakeSlot(actions.transform, TextAnchor.MiddleRight);
+            foreach (BranchConfig branch in config.Branches)
+            {
+                BranchConfig captured = branch;
+                LabeledButton button = MakeButton(contracts, presentation.ButtonMinHeight, () => BuyBranch(captured));
+                button.Button.gameObject.SetActive(false);
+                contractButtons[branch.Id] = button;
+            }
+            if (Browser())
+            {
+                RectTransform center = MakeSlot(actions.transform, TextAnchor.MiddleCenter);
+                center.SetSiblingIndex(1);
+                LabeledButton download = MakeButton(center, presentation.ButtonMinHeight, () => exportLogs.ExportNow());
+                download.Label.text = presentation.DownloadLabel;
+            }
+            prestigeButton = MakeButton(prestigeSlot, presentation.ButtonMinHeight, Prestige);
+            byte[] prestigeIcon = Picture(presentation.PrestigeIcon);
+            if (prestigeIcon != null)
+            {
+                prestigeButton.Button.image.sprite = UiSprite(prestigeIcon);
+                prestigeButton.Button.image.color = Color.white;
+                ColorBlock colors = prestigeButton.Button.colors;
+                colors.normalColor = Color.white;
+                colors.selectedColor = Color.white;
+                prestigeButton.Button.colors = colors;
+            }
+            prestigeButton.Button.gameObject.SetActive(false);
+        }
+
+        RectTransform MakeSlot(Transform parent, TextAnchor alignment)
+        {
+            GameObject slot = new GameObject("Slot", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+            slot.transform.SetParent(parent, false);
+            LayoutElement element = slot.GetComponent<LayoutElement>();
+            element.flexibleWidth = 1f;
+            element.minHeight = presentation.ButtonMinHeight;
+            element.preferredHeight = presentation.ButtonMinHeight;
+            HorizontalLayoutGroup group = slot.GetComponent<HorizontalLayoutGroup>();
+            group.spacing = presentation.Spacing;
+            group.childAlignment = alignment;
+            group.childControlWidth = true;
+            group.childControlHeight = true;
+            group.childForceExpandWidth = true;
+            group.childForceExpandHeight = true;
+            return slot.GetComponent<RectTransform>();
+        }
+
+        ScrollList BuildScroll(Transform parent, string name)
+        {
+            GameObject scrollObject = new GameObject(name, typeof(RectTransform), typeof(ScrollRect), typeof(Image), typeof(RectMask2D), typeof(LayoutElement));
+            scrollObject.transform.SetParent(parent, false);
+            Image background = scrollObject.GetComponent<Image>();
+            background.color = presentation.Background;
+            background.raycastTarget = true;
             LayoutElement scrollElement = scrollObject.GetComponent<LayoutElement>();
             scrollElement.flexibleHeight = 1f;
-            scrollElement.minHeight = presentation.ButtonMinHeight;
+            scrollElement.minHeight = presentation.GeneratorRowHeight;
             ScrollRect scroll = scrollObject.GetComponent<ScrollRect>();
             scroll.horizontal = false;
+            scroll.vertical = true;
             scroll.movementType = ScrollRect.MovementType.Clamped;
             scroll.viewport = scrollObject.GetComponent<RectTransform>();
 
@@ -661,7 +868,7 @@ namespace Playtest
             content.offsetMin = Vector2.zero;
             content.offsetMax = Vector2.zero;
             VerticalLayoutGroup layout = contentObject.GetComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(0, 0, 0, presentation.Padding);
+            layout.padding = new RectOffset(presentation.Padding, presentation.Padding, presentation.Padding, presentation.Padding);
             layout.spacing = presentation.Spacing;
             layout.childAlignment = TextAnchor.UpperCenter;
             layout.childControlWidth = true;
@@ -672,80 +879,63 @@ namespace Playtest
             fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             scroll.content = content;
-
-            int iconIndex = 0;
-            foreach (GeneratorConfig generator in config.Generators)
+            return new ScrollList
             {
-                GeneratorConfig captured = generator;
-                MakeIcon(content, presentation.IconColor(iconIndex));
-                iconIndex++;
-                GeneratorRow row = new GeneratorRow
-                {
-                    Generator = generator,
-                    Owned = MakeText(content, presentation.GeneratorSize, presentation.BodyMinHeight, presentation.Text),
-                    BarFill = MakeBar(content),
-                    Buy = MakeButton(content, presentation.ButtonMinHeight, () => BuyGenerator(captured)),
-                };
-                generatorRows.Add(row);
-            }
-            foreach (RelicItemConfig relic in config.Relics.Items)
-            {
-                RelicItemConfig captured = relic;
-                relicButtons[relic.Id] = MakeButton(content, presentation.ButtonMinHeight, () => BuyRelic(captured));
-            }
-            MakeText(content, presentation.BodySize, presentation.BodyMinHeight, presentation.Text).text =
-                presentation.SeasonLabel + "  " + seasonPass.SeasonId + "  " + seasonPass.StartDate + "  " + seasonPass.EndDate;
-            foreach (CosmeticItem item in cosmetics.Items)
-            {
-                string premium = item.Premium ? "  " + presentation.PremiumLabel : "";
-                MakeText(content, presentation.BodySize, presentation.BodyMinHeight, presentation.Text).text =
-                    item.Name + "  " + item.Slot + premium;
-            }
-
-            prestigeButton = MakeButton(shakeRoot, presentation.ButtonMinHeight, Prestige);
-            byte[] prestigeIcon = Picture(presentation.PrestigeIcon);
-            if (prestigeIcon != null)
-            {
-                prestigeButton.Button.image.sprite = UiSprite(prestigeIcon);
-                prestigeButton.Button.image.color = Color.white;
-                ColorBlock colors = prestigeButton.Button.colors;
-                colors.normalColor = Color.white;
-                colors.selectedColor = Color.white;
-                prestigeButton.Button.colors = colors;
-            }
-            prestigeButton.Button.gameObject.SetActive(false);
-            foreach (BranchConfig branch in config.Branches)
-            {
-                BranchConfig captured = branch;
-                LabeledButton button = MakeButton(shakeRoot, presentation.ButtonMinHeight, () => BuyBranch(captured));
-                button.Button.gameObject.SetActive(false);
-                contractButtons[branch.Id] = button;
-            }
-            GameObject actorSpace = new GameObject("ActorSpace", typeof(RectTransform), typeof(LayoutElement));
-            actorSpace.transform.SetParent(shakeRoot, false);
-            LayoutElement actorElement = actorSpace.GetComponent<LayoutElement>();
-            float actorBand = ActorBandHeight();
-            actorElement.minHeight = actorBand;
-            actorElement.preferredHeight = actorBand;
-            return shakeRoot;
+                Root = scrollObject,
+                Content = content,
+            };
         }
 
-        float ActorBandHeight()
+        void AddGeneratorRow(Transform content, GeneratorConfig generator, int iconIndex)
         {
-            float enemyHeight = 0f;
-            if (presentation.Enemies != null)
+            GeneratorConfig captured = generator;
+            GameObject row = new GameObject("Generator", typeof(RectTransform), typeof(Image), typeof(Button), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+            row.transform.SetParent(content, false);
+            row.GetComponent<Image>().color = Color.white;
+            LayoutElement element = row.GetComponent<LayoutElement>();
+            element.minHeight = presentation.GeneratorRowHeight;
+            element.preferredHeight = presentation.GeneratorRowHeight;
+            HorizontalLayoutGroup group = row.GetComponent<HorizontalLayoutGroup>();
+            group.padding = new RectOffset(presentation.Padding, presentation.Padding, 0, 0);
+            group.spacing = presentation.Spacing;
+            group.childAlignment = TextAnchor.MiddleCenter;
+            group.childControlWidth = true;
+            group.childControlHeight = true;
+            group.childForceExpandWidth = false;
+            group.childForceExpandHeight = false;
+            Button button = row.GetComponent<Button>();
+            StyleButton(button);
+            button.onClick.AddListener(() => BuyGenerator(captured));
+
+            GameObject chip = new GameObject("Chip", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+            chip.transform.SetParent(row.transform, false);
+            Image chipImage = chip.GetComponent<Image>();
+            chipImage.color = presentation.IconColor(iconIndex);
+            chipImage.raycastTarget = false;
+            LayoutElement chipElement = chip.GetComponent<LayoutElement>();
+            chipElement.minWidth = presentation.BarHeight;
+            chipElement.preferredWidth = presentation.BarHeight;
+            chipElement.minHeight = presentation.BarHeight;
+            chipElement.preferredHeight = presentation.BarHeight;
+
+            Text name = MakeText(row.transform, presentation.GeneratorSize, presentation.GeneratorRowHeight, presentation.Text);
+            name.alignment = TextAnchor.MiddleLeft;
+            name.GetComponent<LayoutElement>().flexibleWidth = 1f;
+            Text owned = MakeText(row.transform, presentation.BodySize, presentation.GeneratorRowHeight, presentation.Text);
+            owned.alignment = TextAnchor.MiddleCenter;
+            Text cost = MakeText(row.transform, presentation.BodySize, presentation.GeneratorRowHeight, presentation.Currency);
+            cost.alignment = TextAnchor.MiddleRight;
+            Image bar = MakeBar(row.transform);
+            generatorRows.Add(new GeneratorRow
             {
-                for (int index = 0; index < presentation.Enemies.Length; index++)
-                {
-                    float height = presentation.Enemies[index].Height;
-                    if (height > enemyHeight)
-                        enemyHeight = height;
-                }
-            }
-            float band = presentation.Hero == null ? 0f : presentation.Hero.Height;
-            if (enemyHeight > 0f)
-                band += presentation.Spacing + enemyHeight;
-            return band;
+                Generator = generator,
+                Name = name,
+                Owned = owned,
+                Cost = cost,
+                BarFill = bar,
+                Button = button,
+                Rect = row.GetComponent<RectTransform>(),
+            });
         }
 
         void BuildClassRow(Transform parent)
@@ -837,16 +1027,17 @@ namespace Playtest
             return data;
         }
 
-        Text MakeIconRow(Transform parent, string iconPath, int size, float height, Color color)
+        Text MakeIconRow(Transform parent, string iconPath, int size, float height, Color color, TextAnchor alignment, FontStyle style)
         {
             GameObject row = new GameObject("IconRow", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
             row.transform.SetParent(parent, false);
             LayoutElement rowElement = row.GetComponent<LayoutElement>();
             rowElement.minHeight = height;
             rowElement.preferredHeight = height;
+            rowElement.flexibleWidth = 1f;
             HorizontalLayoutGroup group = row.GetComponent<HorizontalLayoutGroup>();
             group.spacing = presentation.Spacing;
-            group.childAlignment = TextAnchor.MiddleLeft;
+            group.childAlignment = alignment;
             group.childControlWidth = true;
             group.childControlHeight = true;
             group.childForceExpandWidth = false;
@@ -865,11 +1056,16 @@ namespace Playtest
                 iconElement.minWidth = height;
                 iconElement.preferredWidth = height;
                 iconElement.minHeight = height;
+                iconElement.preferredHeight = height;
             }
             Text text = MakeText(row.transform, size, height, color);
-            LayoutElement textElement = text.GetComponent<LayoutElement>();
-            textElement.minWidth = presentation.ReferenceWidth * 0.5f;
-            textElement.flexibleWidth = 1f;
+            text.fontStyle = style;
+            text.alignment = alignment;
+            if (alignment == TextAnchor.MiddleLeft || alignment == TextAnchor.UpperLeft || alignment == TextAnchor.LowerLeft)
+            {
+                LayoutElement textElement = text.GetComponent<LayoutElement>();
+                textElement.flexibleWidth = 1f;
+            }
             return text;
         }
 
@@ -891,17 +1087,42 @@ namespace Playtest
 
         void ShowError(string message)
         {
-            font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (font == null)
-                font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            GameObject canvasObject = new GameObject("Canvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-            canvasObject.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
-            CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080f, 1920f);
-            errorText = MakeText(canvasObject.transform, 32, 400f, Color.white);
-            Stretch(errorText.rectTransform);
-            errorText.alignment = TextAnchor.UpperLeft;
+            {
+                font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                if (font == null)
+                    font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            }
+            Canvas canvas = FindObjectOfType<Canvas>();
+            Transform parent;
+            if (canvas == null)
+            {
+                GameObject canvasObject = new GameObject("Canvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+                canvas = canvasObject.GetComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
+                parent = canvasObject.transform;
+            }
+            else
+            {
+                parent = canvas.transform;
+            }
+            if (errorText == null)
+            {
+                int size = presentation == null ? font.fontSize : presentation.BodySize;
+                if (size < 1)
+                    size = 1;
+                float height = presentation == null ? font.lineHeight : presentation.BodyMinHeight;
+                if (height < 1f)
+                    height = 1f;
+                errorText = MakeText(parent, size, height, Color.white);
+                Stretch(errorText.rectTransform);
+                errorText.GetComponent<LayoutElement>().ignoreLayout = true;
+                errorText.alignment = TextAnchor.UpperLeft;
+                if (presentation == null)
+                    errorText.resizeTextForBestFit = true;
+            }
             errorText.text = message;
         }
 
@@ -932,18 +1153,7 @@ namespace Playtest
             element.minHeight = height;
             element.preferredHeight = height;
             Button button = item.GetComponent<Button>();
-            ColorBlock colors = button.colors;
-            colors.normalColor = presentation.Button;
-            colors.highlightedColor = presentation.Text;
-            colors.pressedColor = presentation.Critical;
-            colors.selectedColor = presentation.Button;
-            colors.disabledColor = presentation.BarTrack;
-            button.colors = colors;
-            button.onClick.AddListener(() =>
-            {
-                if (audioManager != null)
-                    audioManager.PlayClick();
-            });
+            StyleButton(button);
             button.onClick.AddListener(action);
             Text label = MakeText(item.transform, presentation.BodySize, height - presentation.Spacing, presentation.ButtonText);
             Stretch(label.rectTransform);
@@ -957,27 +1167,33 @@ namespace Playtest
             };
         }
 
-        Image MakeIcon(Transform parent, Color color)
+        void StyleButton(Button button)
         {
-            GameObject item = new GameObject("Icon", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
-            item.transform.SetParent(parent, false);
-            Image image = item.GetComponent<Image>();
-            image.color = color;
-            LayoutElement element = item.GetComponent<LayoutElement>();
-            element.minHeight = presentation.BarHeight * 2f;
-            element.preferredHeight = presentation.BarHeight * 2f;
-            element.minWidth = presentation.BarHeight * 2f;
-            return image;
+            ColorBlock colors = button.colors;
+            colors.normalColor = presentation.Button;
+            colors.highlightedColor = presentation.Text;
+            colors.pressedColor = presentation.Critical;
+            colors.selectedColor = presentation.Button;
+            colors.disabledColor = presentation.BarTrack;
+            button.colors = colors;
+            button.onClick.AddListener(() =>
+            {
+                if (audioManager != null)
+                    audioManager.PlayClick();
+            });
         }
 
         Image MakeBar(Transform parent)
         {
             GameObject track = new GameObject("Bar", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
             track.transform.SetParent(parent, false);
-            track.GetComponent<Image>().color = presentation.BarTrack;
+            Image trackImage = track.GetComponent<Image>();
+            trackImage.color = presentation.BarTrack;
+            trackImage.raycastTarget = false;
             LayoutElement element = track.GetComponent<LayoutElement>();
             element.minHeight = presentation.BarHeight;
             element.preferredHeight = presentation.BarHeight;
+            element.flexibleWidth = 1f;
             GameObject fill = new GameObject("Fill", typeof(RectTransform), typeof(Image), typeof(Outline));
             fill.transform.SetParent(track.transform, false);
             RectTransform rect = fill.GetComponent<RectTransform>();
@@ -986,9 +1202,10 @@ namespace Playtest
             rect.offsetMin = Vector2.zero;
             rect.offsetMax = Vector2.zero;
             Image image = fill.GetComponent<Image>();
-            image.color = presentation.Bar;
+            image.color = presentation.Currency;
+            image.raycastTarget = false;
             Outline glow = fill.GetComponent<Outline>();
-            Color glowColor = presentation.Glow;
+            Color glowColor = presentation.Bar;
             glowColor.a = presentation.GlowAlpha;
             glow.effectColor = glowColor;
             glow.effectDistance = new Vector2(presentation.GlowDistance, presentation.GlowDistance);

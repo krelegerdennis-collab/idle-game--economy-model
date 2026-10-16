@@ -14,26 +14,12 @@ namespace Playtest
         bool returning;
         Color baseColor;
         PresentationConfig presentation;
-        float width;
-        float height;
-
-        public float Width
-        {
-            get { return width; }
-        }
-
-        public float Height
-        {
-            get { return height; }
-        }
 
         public void Bind(PresentationConfig source, ActorVisual visual, RuntimeAnimatorController controller, byte[] png)
         {
             presentation = source;
             idleState = source.IdleState;
             cueSeconds = source.CueSeconds;
-            width = visual.Width;
-            height = visual.Height;
             Sprite picture = FromPng(png);
             baseColor = picture == null ? visual.Color : Color.white;
             image = gameObject.GetComponent<Image>();
@@ -50,16 +36,18 @@ namespace Playtest
             Show(idleState);
         }
 
-        public void Pin(Vector2 anchor, Vector2 anchoredPosition)
+        public void Fit(float scale)
         {
             RectTransform rect = transform as RectTransform;
             if (rect == null)
                 return;
-            rect.anchorMin = anchor;
-            rect.anchorMax = anchor;
-            rect.pivot = new Vector2(0.5f, 0f);
-            rect.anchoredPosition = anchoredPosition;
-            rect.sizeDelta = new Vector2(width, height);
+            float clamped = Mathf.Clamp01(scale);
+            float inset = (1f - clamped) * 0.5f;
+            rect.anchorMin = new Vector2(inset, inset);
+            rect.anchorMax = new Vector2(1f - inset, 1f - inset);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
         }
 
         public void SetPicture(byte[] png)

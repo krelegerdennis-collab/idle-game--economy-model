@@ -93,6 +93,22 @@ def _validate_presentation(payload: dict) -> None:
     match = _number(layout, "matchWidthOrHeight")
     if not 0 <= match <= 1:
         raise ValueError("presentation.json matchWidthOrHeight must be from 0 to 1")
+    bottom = _number(layout, "bottomAnchor")
+    middle = _number(layout, "middleAnchor")
+    top = _number(layout, "topAnchor")
+    if bottom != 0 or not bottom < middle < top < 1:
+        raise ValueError(
+            "presentation.json layout anchors must be bottom 0, then middle, then top, below 1"
+        )
+    row_height = _number(layout, "generatorRowHeight")
+    if not 60 <= row_height <= 80:
+        raise ValueError("presentation.json generatorRowHeight must sit between 60 and 80")
+    split = _number(layout, "actorSplit")
+    if not 0 < split < 1:
+        raise ValueError("presentation.json actorSplit must be between 0 and 1")
+    hero_scale = _number(layout, "heroScale")
+    if not 0 < hero_scale < 1:
+        raise ValueError("presentation.json heroScale must be between 0 and 1")
 
     feedback = _object(payload, "feedback")
     for key in (
@@ -178,7 +194,7 @@ def _validate_presentation(payload: dict) -> None:
     _validate_art(payload.get("art"), actors)
 
     copy = _object(payload, "copy")
-    for key in ("time", "contract", "prestige", "relic", "download", "dip", "peak", "premium", "season"):
+    for key in ("time", "contract", "prestige", "relic", "download", "dip", "peak", "premium", "season", "shop"):
         text = copy.get(key)
         if not isinstance(text, str) or not text:
             raise ValueError(f"presentation.json copy.{key} must be text")

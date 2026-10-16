@@ -30,7 +30,13 @@
     "padding": 32,
     "spacing": 16,
     "stageFraction": 0.22,
-    "matchWidthOrHeight": 0.5
+    "matchWidthOrHeight": 0.5,
+    "topAnchor": 0.9,
+    "middleAnchor": 0.4,
+    "bottomAnchor": 0.0,
+    "generatorRowHeight": 72,
+    "actorSplit": 0.5,
+    "heroScale": 0.85
   },
   "feedback": {
     "floatSeconds": 0.85,
@@ -123,6 +129,7 @@
     "dip": "dip",
     "peak": "piek",
     "premium": "premium",
-    "season": "seizoen"
+    "season": "seizoen",
+    "shop": "Shop"
   }
 }
