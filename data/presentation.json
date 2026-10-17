@@ -88,11 +88,11 @@
     "hero": {
       "id": "hero",
       "color": "#7AD7FF",
-      "width": 143,
-      "height": 243,
+      "width": 174,
+      "height": 238,
       "x": -1.6,
       "y": 3.9,
-      "sprite_path": "Sprites/Characters/rogue.png"
+      "sprite_path": "Sprites/Characters/assassin_run_0.png"
     },
     "enemies": [
       {"id": "slime", "color": "#7CFF6B", "width": 131, "height": 102, "x": -0.2, "y": 3.4, "sprite_path": "Sprites/Enemies/slime.png"},

@@ -10,6 +10,14 @@ namespace Playtest
         public Color Color;
     }
 
+    public sealed class AssassinClip
+    {
+        public string Name;
+        public float Fps;
+        public bool Loop;
+        public string[] Frames;
+    }
+
     public sealed class AssassinConfig
     {
         public const int SupportedSchemaVersion = 1;
@@ -46,6 +54,13 @@ namespace Playtest
         public string PrestigeLabel;
         public Dictionary<string, string> Informants;
         public Dictionary<string, string> RelicNames;
+        public string DefaultState;
+        public string AttackTrigger;
+        public string RunningParameter;
+        public string Sheet;
+        public AssassinClip Run;
+        public AssassinClip Attack;
+        public AssassinClip Idle;
 
         public double Burst(int totalOwned, bool backstab)
         {
@@ -86,6 +101,32 @@ namespace Playtest
         public string RelicName(string id)
         {
             return Lookup(RelicNames, id);
+        }
+
+        public List<string> AllFramePaths()
+        {
+            List<string> paths = new List<string>();
+            AddFrames(paths, Run);
+            AddFrames(paths, Attack);
+            AddFrames(paths, Idle);
+            return paths;
+        }
+
+        public static List<string> FramePaths(string json)
+        {
+            return Parse(json).AllFramePaths();
+        }
+
+        static void AddFrames(List<string> paths, AssassinClip clip)
+        {
+            if (clip == null || clip.Frames == null)
+                return;
+            for (int index = 0; index < clip.Frames.Length; index++)
+            {
+                string path = clip.Frames[index];
+                if (!string.IsNullOrEmpty(path) && !paths.Contains(path))
+                    paths.Add(path);
+            }
         }
 
         static string Lookup(Dictionary<string, string> names, string id)
@@ -141,6 +182,7 @@ namespace Playtest
                 Informants = ReadNames(labels, "informants"),
                 RelicNames = ReadNames(labels, "relics"),
             };
+            config.ReadAnimation(root);
             if (config.LabelSize < 1)
                 throw new InvalidOperationException("assassin.json labelSize must be positive");
             if (config.HvtTapsRequired < 1)
@@ -148,6 +190,54 @@ namespace Playtest
             if (config.VignetteTexels < 2)
                 throw new InvalidOperationException("assassin.json vignetteTexels must be at least 2");
             return config;
+        }
+
+        void ReadAnimation(JsonValue root)
+        {
+            JsonValue animation = Required(root, "animation");
+            JsonValue states = Required(animation, "states");
+            DefaultState = RequiredText(animation, "defaultState");
+            string attackState = RequiredText(animation, "attackState");
+            string idleState = RequiredText(animation, "idleState");
+            AttackTrigger = RequiredText(animation, "attackTrigger");
+            RunningParameter = RequiredText(animation, "runningParameter");
+            Sheet = RequiredText(animation, "sheet");
+            if (!Sheet.StartsWith("Sprites/") || !Sheet.EndsWith(".png"))
+                throw new InvalidOperationException("assassin.json sheet must be a Sprites PNG");
+            Run = ReadClip(states, DefaultState);
+            Attack = ReadClip(states, attackState);
+            Idle = ReadClip(states, idleState);
+            if (Attack.Name == Run.Name || Idle.Name == Run.Name || Idle.Name == Attack.Name)
+                throw new InvalidOperationException("assassin.json animation states must differ");
+        }
+
+        static AssassinClip ReadClip(JsonValue states, string name)
+        {
+            JsonValue node = Required(states, name);
+            double fps = RequiredPositive(node, "fps");
+            JsonValue loop = Required(node, "loop");
+            if (loop.Type != JsonValue.Kind.Bool)
+                throw new InvalidOperationException("assassin.json " + name + " loop must be true or false");
+            JsonValue frames = Required(node, "frames");
+            if (frames.Type != JsonValue.Kind.Array || frames.Items.Count == 0)
+                throw new InvalidOperationException("assassin.json " + name + " frames are empty");
+            string[] paths = new string[frames.Items.Count];
+            for (int index = 0; index < frames.Items.Count; index++)
+            {
+                JsonValue item = frames.Items[index];
+                if (item.Type != JsonValue.Kind.String || string.IsNullOrEmpty(item.Text))
+                    throw new InvalidOperationException("assassin.json " + name + " frame is empty");
+                if (!item.Text.StartsWith("Sprites/") || !item.Text.EndsWith(".png"))
+                    throw new InvalidOperationException("assassin.json " + name + " frame must be a Sprites PNG");
+                paths[index] = item.Text;
+            }
+            return new AssassinClip
+            {
+                Name = name,
+                Fps = (float)fps,
+                Loop = loop.Bool,
+                Frames = paths,
+            };
         }
 
         static Dictionary<string, string> ReadNames(JsonValue labels, string key)

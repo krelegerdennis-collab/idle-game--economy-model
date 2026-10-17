@@ -53,5 +53,42 @@
       {"id": "fifth_slot", "name": "Fifth Slot"},
       {"id": "return_flare", "name": "Return Flare"}
     ]
+  },
+  "animation": {
+    "sheet": "Sprites/Characters/assassin_sheet.png",
+    "defaultState": "Run",
+    "attackState": "Attack",
+    "idleState": "Idle",
+    "attackTrigger": "Attack",
+    "runningParameter": "IsRunning",
+    "states": {
+      "Run": {
+        "fps": 12,
+        "loop": true,
+        "frames": [
+          "Sprites/Characters/assassin_run_0.png",
+          "Sprites/Characters/assassin_run_1.png",
+          "Sprites/Characters/assassin_run_2.png",
+          "Sprites/Characters/assassin_run_3.png"
+        ]
+      },
+      "Attack": {
+        "fps": 15,
+        "loop": false,
+        "frames": [
+          "Sprites/Characters/assassin_attack_0.png",
+          "Sprites/Characters/assassin_attack_1.png",
+          "Sprites/Characters/assassin_attack_2.png"
+        ]
+      },
+      "Idle": {
+        "fps": 6,
+        "loop": true,
+        "frames": [
+          "Sprites/Characters/assassin_idle_0.png",
+          "Sprites/Characters/assassin_idle_1.png"
+        ]
+      }
+    }
   }
 }

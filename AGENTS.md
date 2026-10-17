@@ -222,18 +222,20 @@ are MP3 in `unity/Playtest/Assets/Audio/Music/`. Effect files are WAV in
 `sfxClips` empty until those files exist, and it plays only from the
 array that has a clip. The game stays silent until clips are assigned.
 
-Actors use `Assets/Resources/Animators/PixelActor.controller` with states
+Enemies use `Assets/Resources/Animators/PixelActor.controller` with states
 Idle, Attack, Celebrate, and Hurt. Each actor is an Image on the UI
-canvas, in the middle band described under UI Layout. The hero is the
-rogue, one large Image on the top-right of the fight scene. Enemies sit
+canvas, in the middle band described under UI Layout. The hero is one
+large Image on the top-right of the fight scene and plays the assassin
+sheet from Assassin Animation. Enemies sit
 in the left and center of that stage, large enough to read. The backdrop
 is the supplied cyberpunk city,
 `unity/Playtest/Assets/Sprites/Backgrounds/cyberpunk_city.png`,
 drawn as a full-screen Image with preserve aspect off, behind the bands.
 The same PNG bytes are copied under StreamingAssets. The
 five classes in `art.classes` stay in the data. The client does not draw
-them and does not swap the picture. `art.defaultClass` is `rogue`, and
-`actors.hero.sprite_path` is that same sprite. `art.classPrefKey` is
+them and does not swap the picture. `art.defaultClass` stays `rogue`.
+The hero picture is the assassin run cycle, not that class row.
+`art.classPrefKey` is
 unused and does not change production. Enemy, UI, and background PNGs
 are cut from the same sheet into `Assets/Sprites/` and copied to
 StreamingAssets. Those textures import with point filtering and
@@ -300,6 +302,44 @@ economy. A fullscreen white flash lasts `prestigeFlashSeconds`.
 
 Unity Editor was not run for these hooks, so Play mode was not checked.
 
+## Assassin Animation
+
+The hero is a UI Image on the fight-scene canvas. Clips animate
+`Image.sprite` (`m_Sprite` on `UnityEngine.UI.Image`). They do not drive a
+world sprite renderer, and the hero does not patrol across the screen.
+
+`unity/Playtest/Assets/Sprites/Characters/assassin_sheet.png` is the
+supplied sheet with the checkerboard keyed out. The same bytes are copied
+to StreamingAssets. The sheet is not a 3x3. Tight crops, also copied
+byte-for-byte under `StreamingAssets/Sprites/Characters/`:
+
+- Run, four frames, 12 fps, looping: `assassin_run_0.png` through
+  `assassin_run_3.png`. The character runs to the right and the cape moves.
+- Attack, three frames, 15 fps, not looping: `assassin_attack_0.png`
+  through `assassin_attack_2.png`. Wind-up, the cyan slash, then recovery.
+- Idle, two frames, 6 fps, looping: `assassin_idle_0.png` and
+  `assassin_idle_1.png`. Standing, with a small breathing change.
+
+Counts and rates live in `data/assassin.json` under `animation`, with a
+byte-identical StreamingAssets copy. `AssassinRunner` reads that fps for
+the timer that swaps the hero Image when the imported clips are not bound.
+The editor clips still use 12, 15, and 6 as their sample rates.
+
+`Tools/Slice Assassin Sheet` is the menu on
+`unity/Playtest/Assets/Editor/SpriteSheetSlicer.cs`. It sets Sprite (2D and
+UI), Point filtering, and no compression, and writes rects for this 4 / 3 /
+2 sheet. An enemy sheet can later use the same slicer with its own rects.
+
+`unity/Playtest/Assets/Animations/AssassinAnimator.controller` has states
+Run, Attack, and Idle. Run is the default. `IsRunning` keeps Run while it
+is true and Idle while it is false. The playtest starts in Run. The Attack
+trigger plays the strike. Attack has exit time, does not loop, and returns
+to Run when the clip ends. The Assassinate button calls
+`AssassinRunner.Attack`, which sets that trigger. Burst, cooldown,
+backstab, and the high-value target are unchanged.
+
+Unity Editor was not run, so press Play in the Editor to see the cycle.
+
 ## UI Layout
 
 The playtest is one portrait screen. `PlaytestController` builds a single
@@ -320,13 +360,13 @@ fractions:
   the right with the crystal icon (`labels.insight`).
 - Middle, from `middleAnchor` (0.15) to `topAnchor` (0.9). This is the
   fight scene. There is no class picker and no row of class Images. The
-  hero is always the rogue (`art.defaultClass`). One large Image is
-  anchored to the top-right of the stage. Its height is `heroScale`
-  (0.85) of that stage, and its width follows `actors.hero` width and
-  height so the pixel art keeps its aspect. `actorSplit` (0.5) keeps the
-  hero on the right. Enemies are Images in the left and center. On the
+  hero is the animated assassin, held in the top-right slot. One large
+  Image is anchored to the top-right of the stage. Its height is
+  `heroScale` (0.85) of that stage, and its width follows `actors.hero`
+  width and height so the pixel art keeps its aspect. `actorSplit` (0.5)
+  keeps the hero on the right. Enemies are Images in the left and center. On the
   tall portrait stage they stack, so they read as a fight and not as a
-  class-select row. They do not sit under the rogue or the buttons.
+  class-select row. They do not sit under the hero or the buttons.
   Generator buys are buttons on this same band, under the stage, in a
   grid. Column count is `layout.generatorColumns` (2). Row height is
   `layout.generatorRowHeight` (72, inside 60–80). Cell inset is
@@ -341,7 +381,7 @@ fractions:
   band's own padding and the gap above the grid (80) and a fight-scene
   reserve of `stageFraction` 0.22 (about 317), 1043 pixels remain, so
   the 312-pixel grid fits. The scroll view does not scroll. The stage
-  keeps the rest, about 1048 pixels, so the city, the rogue, and the
+  keeps the rest, about 1048 pixels, so the city, the assassin, and the
   enemies stay on screen with all six buttons. The character Image uses
   preserve aspect. The background Image does not. The list background is
   clear, so the city shows between the buttons.
@@ -351,7 +391,7 @@ fractions:
   bottom-center control. Prestige stays on the right, and the shop button
   sits on that same side. Shop opens the relic list in the generator slot.
   It is not a store and it does not sell anything. Season and cosmetic lines
-  sit in that list. These controls stay below the rogue.
+  sit in that list. These controls stay below the hero.
 
 A full-screen background Image is parented to the canvas behind the
 bands. It is `Sprites/Backgrounds/cyberpunk_city.png`. Preserve aspect is

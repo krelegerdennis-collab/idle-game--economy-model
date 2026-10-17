@@ -80,19 +80,29 @@ def test_class_sprites_are_transparent_pngs():
     assert [item["id"] for item in classes] == ["swordsman", "mage", "summoner", "archer", "rogue"]
     assert bundle["presentation"]["art"]["defaultClass"] == "rogue"
     hero = bundle["presentation"]["actors"]["hero"]
-    rogue = next(item for item in classes if item["id"] == "rogue")
-    assert hero["sprite_path"] == rogue["sprite_path"]
+    assert hero["sprite_path"] == "Sprites/Characters/assassin_run_0.png"
     controller = (ROOT / "unity" / "Playtest" / "Assets" / "PlaytestController.cs").read_text(encoding="utf-8")
     assert "DefaultClass" in controller
     assert "BuildClassRow" not in controller
     assert "SelectClass" not in controller
     assert "ClassPrefKey" not in controller
+    assert "assassinRunner.Attack()" in controller
     paths = [item["sprite_path"] for item in classes]
     paths.extend(
         enemy["sprite_path"] for enemy in bundle["presentation"]["actors"]["enemies"]
     )
     paths.append(bundle["presentation"]["art"]["stageBackground"])
+    paths.append(hero["sprite_path"])
+    assassin = json.loads((DATA / "assassin.json").read_text(encoding="utf-8"))
+    animation = assassin["animation"]
+    paths.append(animation["sheet"])
+    for state in animation["states"].values():
+        paths.extend(state["frames"])
+    seen: list[str] = []
     for sprite_path in paths:
+        if sprite_path not in seen:
+            seen.append(sprite_path)
+    for sprite_path in seen:
         art = ROOT / "unity" / "Playtest" / "Assets" / sprite_path
         streaming = STREAMING / sprite_path
         assert art.read_bytes() == streaming.read_bytes()
@@ -100,9 +110,20 @@ def test_class_sprites_are_transparent_pngs():
         assert payload.startswith(b"\x89PNG\r\n\x1a\n")
         if "/Backgrounds/" not in sprite_path:
             assert _png_corner_is_clear(payload)
+        if "assassin_" in sprite_path:
+            assert _png_corners_are_clear(payload)
+
+
+def _png_corners_are_clear(payload: bytes) -> bool:
+    corners = _png_corners(payload)
+    return all(corner == b"\x00\x00\x00\x00" for corner in corners)
 
 
 def _png_corner_is_clear(payload: bytes) -> bool:
+    return _png_corners(payload)[0] == b"\x00\x00\x00\x00"
+
+
+def _png_corners(payload: bytes) -> tuple[bytes, bytes, bytes, bytes]:
     import struct
     import zlib
 
@@ -125,8 +146,8 @@ def _png_corner_is_clear(payload: bytes) -> bool:
     stride = width * 4
     previous = bytearray(stride)
     cursor = 0
-    corner = None
-    for _ in range(height):
+    top = bottom = None
+    for row_index in range(height):
         filter_type = rows[cursor]
         data = bytearray(rows[cursor + 1:cursor + 1 + stride])
         for index in range(stride):
@@ -143,11 +164,13 @@ def _png_corner_is_clear(payload: bytes) -> bool:
                 data[index] = (data[index] + _paeth(left, up, up_left)) & 255
             elif filter_type != 0:
                 raise AssertionError("png filter " + str(filter_type))
-        if corner is None:
-            corner = bytes(data[:4])
+        if row_index == 0:
+            top = (bytes(data[:4]), bytes(data[-4:]))
+        if row_index == height - 1:
+            bottom = (bytes(data[:4]), bytes(data[-4:]))
         previous = data
         cursor += 1 + stride
-    return corner == b"\x00\x00\x00\x00"
+    return top[0], top[1], bottom[0], bottom[1]
 
 
 def _paeth(left: int, up: int, up_left: int) -> int:
@@ -261,6 +284,53 @@ def test_assassin_hooks_stay_outside_the_frozen_curve():
     assert target["failCooldownSeconds"] == 600
     assert motion["amplitude"] == 0.04
     assert motion["periodSeconds"] == 18
+    animation = payload["animation"]
+    assert animation["defaultState"] == "Run"
+    assert animation["attackState"] == "Attack"
+    assert animation["idleState"] == "Idle"
+    assert animation["attackTrigger"] == "Attack"
+    assert animation["runningParameter"] == "IsRunning"
+    assert animation["sheet"] == "Sprites/Characters/assassin_sheet.png"
+    assert animation["states"]["Run"]["fps"] == 12
+    assert animation["states"]["Run"]["loop"] is True
+    assert len(animation["states"]["Run"]["frames"]) == 4
+    assert animation["states"]["Attack"]["fps"] == 15
+    assert animation["states"]["Attack"]["loop"] is False
+    assert len(animation["states"]["Attack"]["frames"]) == 3
+    assert animation["states"]["Idle"]["fps"] == 6
+    assert animation["states"]["Idle"]["loop"] is True
+    assert len(animation["states"]["Idle"]["frames"]) == 2
+    animations = ROOT / "unity" / "Playtest" / "Assets" / "Animations"
+    run_clip = (animations / "Assassin_Run.anim").read_text(encoding="utf-8")
+    attack_clip = (animations / "Assassin_Attack.anim").read_text(encoding="utf-8")
+    idle_clip = (animations / "Assassin_Idle.anim").read_text(encoding="utf-8")
+    assert "m_SampleRate: 12" in run_clip and "m_LoopTime: 1" in run_clip
+    assert "m_SampleRate: 15" in attack_clip and "m_LoopTime: 0" in attack_clip
+    assert "m_SampleRate: 6" in idle_clip and "m_LoopTime: 1" in idle_clip
+    for clip in (run_clip, attack_clip, idle_clip):
+        assert "m_Sprite" in clip
+        assert "fe87c0e1cc204ed48ad3b37840f39efc" in clip
+        assert "fileID: 21300000" in clip
+    animator = (animations / "AssassinAnimator.controller").read_text(encoding="utf-8")
+    assert "m_Name: Run" in animator
+    assert "m_Name: Attack" in animator
+    assert "m_Name: Idle" in animator
+    assert "m_DefaultState: {fileID: 110200001}" in animator
+    assert "m_Name: IsRunning" in animator
+    assert "m_Type: 4" in animator
+    assert "m_DefaultBool: 1" in animator
+    assert "m_ConditionEvent: Attack" in animator
+    assert "m_HasExitTime: 1" in animator
+    runner = (ROOT / "unity" / "Playtest" / "Assets" / "Scripts" / "AssassinRunner.cs").read_text(encoding="utf-8")
+    assert "SetTrigger" in runner
+    assert "12f" not in runner
+    assert "15f" not in runner
+    assert "6f" not in runner
+    slicer = (ROOT / "unity" / "Playtest" / "Assets" / "Editor" / "SpriteSheetSlicer.cs").read_text(encoding="utf-8")
+    assert "Tools/Slice Assassin Sheet" in slicer
+    assert "SpriteImportMode.Multiple" in slicer
+    assert "FilterMode.Point" in slicer
+    assert "TextureImporterCompression.Uncompressed" in slicer
     assert payload["vignetteAlpha"] == 0.45
     owned = [stop["owned"] for stop in payload["skyTints"]]
     assert owned == [0, 50, 100]

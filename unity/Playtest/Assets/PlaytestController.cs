@@ -51,6 +51,7 @@ namespace Playtest
         AudioManager audioManager;
         PresentationFeedback feedback;
         CharacterController hero;
+        AssassinRunner assassinRunner;
         EnemyController enemies;
         Font font;
         TMP_FontAsset tmpFont;
@@ -151,6 +152,26 @@ namespace Playtest
             for (int index = 0; index < paths.Count; index++)
             {
                 string picturePath = paths[index];
+                byte[] data = null;
+                yield return ReadStreamingBytes(picturePath, bytes => data = bytes);
+                if (data != null && data.Length > 0)
+                    pictures[picturePath] = data;
+            }
+            List<string> frames;
+            try
+            {
+                frames = AssassinConfig.FramePaths(assassinText);
+            }
+            catch (Exception exception)
+            {
+                ShowError(exception.Message);
+                yield break;
+            }
+            for (int index = 0; index < frames.Count; index++)
+            {
+                string picturePath = frames[index];
+                if (pictures.ContainsKey(picturePath))
+                    continue;
                 byte[] data = null;
                 yield return ReadStreamingBytes(picturePath, bytes => data = bytes);
                 if (data != null && data.Length > 0)
@@ -589,6 +610,8 @@ namespace Playtest
             portrait.transform.SetParent(stage, false);
             hero = portrait.AddComponent<CharacterController>();
             hero.Bind(presentation, presentation.Hero, controller, Picture(HeroPicture()));
+            assassinRunner = portrait.AddComponent<AssassinRunner>();
+            assassinRunner.Bind(assassin, presentation, pictures);
             LayoutActors();
         }
 
@@ -1425,6 +1448,8 @@ namespace Playtest
         {
             if (assassin == null || state == null || playClock < assassinateReadyAt)
                 return;
+            if (assassinRunner != null)
+                assassinRunner.Attack();
             bool backstab = UnityEngine.Random.value < assassin.BackstabChance;
             double amount = assassin.Burst(state.TotalOwned, backstab);
             state.GrantCurrency(amount);

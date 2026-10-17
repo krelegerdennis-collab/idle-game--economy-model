@@ -83,7 +83,8 @@ namespace Playtest
         void Show(string state)
         {
             current = state;
-            if (animator != null && animator.runtimeAnimatorController != null && !string.IsNullOrEmpty(state))
+            bool heroRunner = GetComponent<AssassinRunner>() != null;
+            if (!heroRunner && animator != null && animator.runtimeAnimatorController != null && !string.IsNullOrEmpty(state))
                 animator.Play(state, 0, 0f);
             float scale = presentation == null ? 1f : presentation.PoseScale(state);
             transform.localScale = new Vector3(scale, scale, 1f);

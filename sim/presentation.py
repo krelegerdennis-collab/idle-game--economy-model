@@ -280,7 +280,13 @@ def _validate_art(art: object, actors: dict) -> None:
     if default not in ids:
         raise ValueError("presentation.json art.defaultClass is not a class id")
     hero_path = actors.get("hero", {}).get("sprite_path")
-    if hero_path != next(item["sprite_path"] for item in classes if item["id"] == default):
+    default_path = next(item["sprite_path"] for item in classes if item["id"] == default)
+    animated = (
+        isinstance(hero_path, str)
+        and hero_path.startswith("Sprites/Characters/assassin_")
+        and hero_path.endswith(".png")
+    )
+    if hero_path != default_path and not animated:
         raise ValueError("presentation.json hero sprite_path must match the default class")
 
 
