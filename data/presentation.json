@@ -35,6 +35,7 @@
     "middleAnchor": 0.15,
     "bottomAnchor": 0.0,
     "generatorRowHeight": 72,
+    "generatorColumns": 2,
     "actorSplit": 0.5,
     "heroScale": 0.85
   },

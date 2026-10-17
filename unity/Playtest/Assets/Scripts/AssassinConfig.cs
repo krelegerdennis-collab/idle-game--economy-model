@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Playtest
@@ -40,6 +41,11 @@ namespace Playtest
         public float VignetteInner;
         public float PrestigeFlashSeconds;
         public SkyTintStop[] SkyTints;
+        public string CurrencyLabel;
+        public string InsightLabel;
+        public string PrestigeLabel;
+        public Dictionary<string, string> Informants;
+        public Dictionary<string, string> RelicNames;
 
         public double Burst(int totalOwned, bool backstab)
         {
@@ -72,6 +78,24 @@ namespace Playtest
             return stops[last].Color;
         }
 
+        public string InformantName(string id)
+        {
+            return Lookup(Informants, id);
+        }
+
+        public string RelicName(string id)
+        {
+            return Lookup(RelicNames, id);
+        }
+
+        static string Lookup(Dictionary<string, string> names, string id)
+        {
+            string name;
+            if (!string.IsNullOrEmpty(id) && names != null && names.TryGetValue(id, out name))
+                return name;
+            return id;
+        }
+
         public static AssassinConfig Parse(string json)
         {
             JsonValue root = JsonMini.Parse(json);
@@ -83,6 +107,7 @@ namespace Playtest
             JsonValue assassinate = Required(root, "assassinate");
             JsonValue target = Required(root, "highValueTarget");
             JsonValue motion = Required(root, "backgroundMotion");
+            JsonValue labels = Required(root, "labels");
             AssassinConfig config = new AssassinConfig
             {
                 Display = RequiredText(assassinate, "display"),
@@ -110,6 +135,11 @@ namespace Playtest
                 VignetteInner = (float)RequiredInner(root, "vignetteInner"),
                 PrestigeFlashSeconds = (float)RequiredNonNegative(root, "prestigeFlashSeconds"),
                 SkyTints = ReadTints(root),
+                CurrencyLabel = RequiredText(labels, "currency"),
+                InsightLabel = RequiredText(labels, "insight"),
+                PrestigeLabel = RequiredText(labels, "prestige"),
+                Informants = ReadNames(labels, "informants"),
+                RelicNames = ReadNames(labels, "relics"),
             };
             if (config.LabelSize < 1)
                 throw new InvalidOperationException("assassin.json labelSize must be positive");
@@ -118,6 +148,26 @@ namespace Playtest
             if (config.VignetteTexels < 2)
                 throw new InvalidOperationException("assassin.json vignetteTexels must be at least 2");
             return config;
+        }
+
+        static Dictionary<string, string> ReadNames(JsonValue labels, string key)
+        {
+            JsonValue array = Required(labels, key);
+            if (array.Type != JsonValue.Kind.Array || array.Items.Count == 0)
+                throw new InvalidOperationException("assassin.json " + key + " is empty");
+            Dictionary<string, string> names = new Dictionary<string, string>();
+            for (int index = 0; index < array.Items.Count; index++)
+            {
+                JsonValue item = array.Items[index];
+                if (item.Type != JsonValue.Kind.Object)
+                    throw new InvalidOperationException("assassin.json " + key + " entry is not an object");
+                string id = RequiredText(item, "id");
+                string name = RequiredText(item, "name");
+                if (names.ContainsKey(id))
+                    throw new InvalidOperationException("assassin.json duplicate " + key + " " + id);
+                names.Add(id, name);
+            }
+            return names;
         }
 
         static SkyTintStop[] ReadTints(JsonValue root)

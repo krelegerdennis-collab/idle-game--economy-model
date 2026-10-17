@@ -34,5 +34,24 @@
     {"owned": 50, "color": "#7A3EAE"},
     {"owned": 100, "color": "#FF2D55"}
   ],
-  "prestigeFlashSeconds": 0.35
+  "prestigeFlashSeconds": 0.35,
+  "labels": {
+    "currency": "Marks",
+    "insight": "Intel",
+    "prestige": "Shadow Mastery",
+    "informants": [
+      {"id": "generator_1", "name": "Street Informant"},
+      {"id": "generator_2", "name": "Alley Informant"},
+      {"id": "generator_3", "name": "Market Informant"},
+      {"id": "generator_4", "name": "Harbor Informant"},
+      {"id": "generator_5", "name": "Tower Informant"},
+      {"id": "generator_6", "name": "Palace Informant"}
+    ],
+    "relics": [
+      {"id": "offline_ledger", "name": "Night Ledger"},
+      {"id": "workshop_key", "name": "Workshop Key"},
+      {"id": "fifth_slot", "name": "Fifth Slot"},
+      {"id": "return_flare", "name": "Return Flare"}
+    ]
+  }
 }

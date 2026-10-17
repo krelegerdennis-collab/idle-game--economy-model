@@ -59,6 +59,7 @@ namespace Playtest
         public float MiddleAnchor;
         public float BottomAnchor;
         public float GeneratorRowHeight;
+        public int GeneratorColumns;
         public float ActorSplit;
         public float HeroScale;
 
@@ -224,6 +225,7 @@ namespace Playtest
                 MiddleAnchor = RequiredFloat(layout, "middleAnchor", "presentation.json"),
                 BottomAnchor = RequiredFloat(layout, "bottomAnchor", "presentation.json"),
                 GeneratorRowHeight = RequiredFloat(layout, "generatorRowHeight", "presentation.json"),
+                GeneratorColumns = RequiredInt(layout, "generatorColumns", "presentation.json"),
                 ActorSplit = RequiredFloat(layout, "actorSplit", "presentation.json"),
                 HeroScale = RequiredFloat(layout, "heroScale", "presentation.json"),
                 FloatSeconds = RequiredFloat(feedback, "floatSeconds", "presentation.json"),
@@ -281,6 +283,8 @@ namespace Playtest
                 throw new InvalidOperationException("presentation.json currencySize must be at least 48.");
             if (config.GeneratorSize < 24)
                 throw new InvalidOperationException("presentation.json generatorSize must be at least 24.");
+            if (config.GeneratorColumns < 1)
+                throw new InvalidOperationException("presentation.json generatorColumns must be at least 1.");
             return config;
         }
 

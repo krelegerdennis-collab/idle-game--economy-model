@@ -644,16 +644,16 @@ namespace Playtest
 
         void Refresh()
         {
-            currencyText.text = config.CurrencyId + "  " + FormatAmount(state.Currency);
+            currencyText.text = assassin.CurrencyLabel + "  " + FormatAmount(state.Currency);
             currencyText.color = presentation.Currency;
-            insightText.text = config.Relics.CurrencyId + "  " + state.Insight.ToString(CultureInfo.InvariantCulture);
+            insightText.text = assassin.InsightLabel + "  " + state.Insight.ToString(CultureInfo.InvariantCulture);
             insightText.color = presentation.Text;
             if (sessionOpen)
                 timeText.text = presentation.TimeLabel + "  " + FormatElapsed((DateTime.UtcNow - sessionStartedAt).TotalSeconds);
             foreach (GeneratorRow row in generatorRows)
             {
                 int owned = state.OwnedCount(row.Generator.Id);
-                row.Name.text = row.Generator.Id;
+                row.Name.text = assassin.InformantName(row.Generator.Id);
                 row.Name.color = presentation.Text;
                 row.Owned.text = owned.ToString(CultureInfo.InvariantCulture);
                 row.Owned.color = presentation.Text;
@@ -667,17 +667,14 @@ namespace Playtest
                 row.Button.interactable = state.Currency >= cost;
             }
             prestigeButton.Button.gameObject.SetActive(state.PrestigeAvailable());
-            prestigeButton.Label.text = presentation.PrestigeLabel + "  x" + FormatAmount(state.PrestigeMultiplierAfterReset());
+            prestigeButton.Label.text = assassin.PrestigeLabel + "  x" + FormatAmount(state.PrestigeMultiplierAfterReset());
             foreach (BranchConfig branch in config.Branches)
             {
                 LabeledButton button = contractButtons[branch.Id];
                 bool open = state.OfferIsOpen(branch);
                 button.Button.gameObject.SetActive(open);
                 double cost = state.NextBranchCost(branch);
-                button.Label.text = presentation.ContractLabel
-                    + "  " + presentation.DipLabel + " " + FormatAmount(branch.ActiveProductionMultiplier)
-                    + "  " + presentation.PeakLabel + " " + FormatAmount(branch.PeakProductionMultiplier)
-                    + "  " + FormatAmount(cost);
+                button.Label.text = presentation.ContractLabel + "  " + FormatAmount(cost);
                 button.Button.interactable = state.Currency >= cost;
             }
             foreach (RelicItemConfig relic in config.Relics.Items)
@@ -685,9 +682,9 @@ namespace Playtest
                 LabeledButton button = relicButtons[relic.Id];
                 bool available = state.RelicLevel(relic.Id) < relic.MaxLevel;
                 button.Button.gameObject.SetActive(available);
-                button.Label.text = presentation.RelicLabel + " " + relic.Id + "  "
+                button.Label.text = assassin.RelicName(relic.Id) + "  "
                     + relic.InsightCost.ToString(CultureInfo.InvariantCulture)
-                    + " " + config.Relics.CurrencyId;
+                    + " " + assassin.InsightLabel;
                 button.Button.interactable = state.Insight >= relic.InsightCost;
             }
             if (stageBackground != null && assassin != null)
@@ -821,10 +818,19 @@ namespace Playtest
             generatorScroll = generators.Root;
             generatorScrollRect = generators.Root.GetComponent<ScrollRect>();
             int iconIndex = 0;
+            int filled = 0;
+            Transform line = null;
+            int columns = presentation.GeneratorColumns;
             foreach (GeneratorConfig generator in config.Generators)
             {
-                AddGeneratorRow(generators.Content, generator, iconIndex);
+                if (line == null || filled >= columns)
+                {
+                    line = MakeGeneratorLine(generators.Content);
+                    filled = 0;
+                }
+                AddGeneratorRow(line, generator, iconIndex);
                 iconIndex++;
+                filled++;
             }
 
             ScrollList shopList = BuildScroll(middle, "ShopPanel", true);
@@ -961,29 +967,64 @@ namespace Playtest
             };
         }
 
-        void AddGeneratorRow(Transform content, GeneratorConfig generator, int iconIndex)
+        Transform MakeGeneratorLine(Transform content)
         {
-            GeneratorConfig captured = generator;
-            GameObject row = new GameObject("Generator", typeof(RectTransform), typeof(Image), typeof(Button), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
-            row.transform.SetParent(content, false);
-            row.GetComponent<Image>().color = Color.white;
-            LayoutElement element = row.GetComponent<LayoutElement>();
+            GameObject line = new GameObject("Line", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+            line.transform.SetParent(content, false);
+            LayoutElement element = line.GetComponent<LayoutElement>();
             element.minHeight = presentation.GeneratorRowHeight;
             element.preferredHeight = presentation.GeneratorRowHeight;
-            HorizontalLayoutGroup group = row.GetComponent<HorizontalLayoutGroup>();
-            group.padding = new RectOffset(presentation.Padding, presentation.Padding, 0, 0);
+            element.flexibleWidth = 1f;
+            HorizontalLayoutGroup group = line.GetComponent<HorizontalLayoutGroup>();
             group.spacing = presentation.Spacing;
             group.childAlignment = TextAnchor.MiddleCenter;
             group.childControlWidth = true;
             group.childControlHeight = true;
-            group.childForceExpandWidth = false;
+            group.childForceExpandWidth = true;
+            group.childForceExpandHeight = true;
+            return line.transform;
+        }
+
+        void AddGeneratorRow(Transform content, GeneratorConfig generator, int iconIndex)
+        {
+            GeneratorConfig captured = generator;
+            GameObject row = new GameObject("Generator", typeof(RectTransform), typeof(Image), typeof(Button), typeof(VerticalLayoutGroup), typeof(LayoutElement));
+            row.transform.SetParent(content, false);
+            row.GetComponent<Image>().color = Color.white;
+            LayoutElement element = row.GetComponent<LayoutElement>();
+            element.flexibleWidth = 1f;
+            element.minHeight = presentation.GeneratorRowHeight;
+            element.preferredHeight = presentation.GeneratorRowHeight;
+            int side = (int)presentation.Spacing;
+            int barInset = (int)presentation.BarHeight;
+            VerticalLayoutGroup group = row.GetComponent<VerticalLayoutGroup>();
+            group.padding = new RectOffset(side, side, 0, barInset);
+            group.spacing = 0f;
+            group.childAlignment = TextAnchor.UpperLeft;
+            group.childControlWidth = true;
+            group.childControlHeight = true;
+            group.childForceExpandWidth = true;
             group.childForceExpandHeight = false;
             Button button = row.GetComponent<Button>();
             StyleButton(button);
             button.onClick.AddListener(() => BuyGenerator(captured));
 
+            GameObject nameLine = new GameObject("NameLine", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+            nameLine.transform.SetParent(row.transform, false);
+            LayoutElement nameElement = nameLine.GetComponent<LayoutElement>();
+            nameElement.minHeight = presentation.GeneratorSize;
+            nameElement.preferredHeight = presentation.GeneratorSize;
+            nameElement.flexibleWidth = 1f;
+            HorizontalLayoutGroup nameGroup = nameLine.GetComponent<HorizontalLayoutGroup>();
+            nameGroup.spacing = presentation.Spacing;
+            nameGroup.childAlignment = TextAnchor.MiddleLeft;
+            nameGroup.childControlWidth = true;
+            nameGroup.childControlHeight = true;
+            nameGroup.childForceExpandWidth = false;
+            nameGroup.childForceExpandHeight = true;
+
             GameObject chip = new GameObject("Chip", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
-            chip.transform.SetParent(row.transform, false);
+            chip.transform.SetParent(nameLine.transform, false);
             Image chipImage = chip.GetComponent<Image>();
             chipImage.color = presentation.IconColor(iconIndex);
             chipImage.raycastTarget = false;
@@ -993,14 +1034,40 @@ namespace Playtest
             chipElement.minHeight = presentation.BarHeight;
             chipElement.preferredHeight = presentation.BarHeight;
 
-            Text name = MakeText(row.transform, presentation.GeneratorSize, presentation.GeneratorRowHeight, presentation.Text);
+            Text name = MakeText(nameLine.transform, presentation.GeneratorSize, presentation.GeneratorSize, presentation.Text);
             name.alignment = TextAnchor.MiddleLeft;
+            name.horizontalOverflow = HorizontalWrapMode.Overflow;
             name.GetComponent<LayoutElement>().flexibleWidth = 1f;
-            Text owned = MakeText(row.transform, presentation.BodySize, presentation.GeneratorRowHeight, presentation.Text);
-            owned.alignment = TextAnchor.MiddleCenter;
-            Text cost = MakeText(row.transform, presentation.BodySize, presentation.GeneratorRowHeight, presentation.Currency);
+
+            GameObject stats = new GameObject("Stats", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+            stats.transform.SetParent(row.transform, false);
+            LayoutElement statsElement = stats.GetComponent<LayoutElement>();
+            statsElement.minHeight = presentation.BodySize;
+            statsElement.preferredHeight = presentation.BodySize;
+            statsElement.flexibleWidth = 1f;
+            HorizontalLayoutGroup statsGroup = stats.GetComponent<HorizontalLayoutGroup>();
+            statsGroup.spacing = presentation.Spacing;
+            statsGroup.childAlignment = TextAnchor.MiddleCenter;
+            statsGroup.childControlWidth = true;
+            statsGroup.childControlHeight = true;
+            statsGroup.childForceExpandWidth = false;
+            statsGroup.childForceExpandHeight = true;
+            Text owned = MakeText(stats.transform, presentation.BodySize, presentation.BodySize, presentation.Text);
+            owned.alignment = TextAnchor.MiddleLeft;
+            owned.horizontalOverflow = HorizontalWrapMode.Overflow;
+            owned.GetComponent<LayoutElement>().flexibleWidth = 1f;
+            Text cost = MakeText(stats.transform, presentation.BodySize, presentation.BodySize, presentation.Currency);
             cost.alignment = TextAnchor.MiddleRight;
+            cost.horizontalOverflow = HorizontalWrapMode.Overflow;
             Image bar = MakeBar(row.transform);
+            LayoutElement barElement = bar.transform.parent.GetComponent<LayoutElement>();
+            barElement.ignoreLayout = true;
+            RectTransform track = bar.transform.parent as RectTransform;
+            track.anchorMin = new Vector2(0f, 0f);
+            track.anchorMax = new Vector2(1f, 0f);
+            track.pivot = new Vector2(0.5f, 0f);
+            track.sizeDelta = new Vector2(0f, presentation.BarHeight);
+            track.anchoredPosition = Vector2.zero;
             generatorRows.Add(new GeneratorRow
             {
                 Generator = generator,
@@ -1244,29 +1311,34 @@ namespace Playtest
         void ApplyGeneratorViewport(float bandHeight)
         {
             int count = config == null || config.Generators == null ? 0 : config.Generators.Length;
-            int rows = RowsThatFit(bandHeight, count);
-            float height = RowBlock(rows);
-            SetScrollHeight(generatorScroll, height);
-            SetScrollHeight(shopPanel, height);
-        }
-
-        int RowsThatFit(float bandHeight, int count)
-        {
-            int cap = 5;
-            if (count < cap)
-                cap = count;
-            if (cap < 1)
-                return 1;
+            int rows = GridRows(count);
+            float needed = RowBlock(rows);
             if (bandHeight < 1f)
                 bandHeight = presentation.ReferenceHeight * (presentation.TopAnchor - presentation.MiddleAnchor);
             float chrome = presentation.Padding * 2f + presentation.Spacing;
-            for (int rows = cap; rows > 1; rows--)
-            {
-                float stage = bandHeight - chrome - RowBlock(rows);
-                if (stage >= RowBlock(rows))
-                    return rows;
-            }
-            return 1;
+            float minStage = bandHeight * presentation.StageFraction;
+            float available = bandHeight - chrome - minStage;
+            bool fits = needed <= available;
+            float height = needed;
+            if (!fits)
+                height = available > presentation.GeneratorRowHeight ? available : presentation.GeneratorRowHeight;
+            SetScrollHeight(generatorScroll, height);
+            SetScrollHeight(shopPanel, height);
+            if (generatorScrollRect != null)
+                generatorScrollRect.vertical = !fits;
+        }
+
+        int GridRows(int count)
+        {
+            int columns = presentation.GeneratorColumns;
+            if (columns < 1)
+                columns = 1;
+            if (count < 1)
+                return 1;
+            int rows = (count + columns - 1) / columns;
+            if (rows < 1)
+                return 1;
+            return rows;
         }
 
         float RowBlock(int rows)

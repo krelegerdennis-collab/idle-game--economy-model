@@ -313,25 +313,38 @@ Three bands divide the screen. Their edges are anchors from the same
 `layout` object, so 1080×1920 and a taller 1080×2400 phone keep the same
 fractions:
 
-- Top, from `topAnchor` (0.9) to the top of the screen. Soft currency on
+- Top, from `topAnchor` (0.9) to the top of the screen. Marks on
   the left with the coin icon, large and bold (`type.currencySize`).
-  Session time in the center (`type.bodySize`). Insight on the right
-  with the crystal icon.
+  The word is `labels.currency` in `data/assassin.json`, not the
+  currency id. Session time in the center (`type.bodySize`). Intel on
+  the right with the crystal icon (`labels.insight`).
 - Middle, from `middleAnchor` (0.15) to `topAnchor` (0.9). This is the
   fight scene. There is no class picker and no row of class Images. The
   hero is always the rogue (`art.defaultClass`). One large Image is
   anchored to the top-right of the stage. Its height is `heroScale`
   (0.85) of that stage, and its width follows `actors.hero` width and
   height so the pixel art keeps its aspect. `actorSplit` (0.5) keeps the
-  hero on the right. Enemies are Images in the left and center, scaled
-  from their width and height so they stay readable, and they do not sit
-  under the rogue or the buttons. Generator buys are buttons on this same
-  band, under the stage. Each button shows the name, the owned count, and
-  the cost, tinted with the theme button colors. Row height is
-  `layout.generatorRowHeight` (72, inside 60–80). About five rows fit on
-  the reference portrait; the rest scroll, and the list opens on the
-  first generator. The character Image uses preserve aspect. The
-  background Image does not.
+  hero on the right. Enemies are Images in the left and center. On the
+  tall portrait stage they stack, so they read as a fight and not as a
+  class-select row. They do not sit under the rogue or the buttons.
+  Generator buys are buttons on this same band, under the stage, in a
+  grid. Column count is `layout.generatorColumns` (2). Row height is
+  `layout.generatorRowHeight` (72, inside 60–80). Cell inset is
+  `layout.spacing`. Six generators are three rows. Each button shows the
+  informant display name from `assassin.json` `labels.informants`, the
+  owned count, and the cost, tinted with the theme button colors. The
+  name sits on the first line and the count and cost on the second, and
+  `generatorSize + bodySize + barHeight` stays within the row (28 + 24 +
+  18 = 70, under 72). On the 1080×1920 reference the grid is 312
+  reference pixels tall: 3×72, two gaps of `spacing` 16, and `padding`
+  32 above and below the list. The middle band is 1440 tall. After the
+  band's own padding and the gap above the grid (80) and a fight-scene
+  reserve of `stageFraction` 0.22 (about 317), 1043 pixels remain, so
+  the 312-pixel grid fits. The scroll view does not scroll. The stage
+  keeps the rest, about 1048 pixels, so the city, the rogue, and the
+  enemies stay on screen with all six buttons. The character Image uses
+  preserve aspect. The background Image does not. The list background is
+  clear, so the city shows between the buttons.
 - Bottom, from `bottomAnchor` (0.0) to `middleAnchor` (0.15). A clear
   strip, not a black panel. The contract button stays on the left and is
   shown only while the offer is open. The large Assassinate button is the
@@ -354,9 +367,18 @@ art shows through. Class choice does not change the picture.
 LandscapeRight is 2, LandscapeLeft is 3, and AutoRotation is 4. Portrait
 autorotation is allowed. Landscape is not. `activeInputHandler` stays 2.
 
-The generator list scrolls only when a row does not fit. The relic list
+The generator grid does not scroll on the 1080×1920 reference, because
+all six buttons fit under the fight scene. The scroll view stays only
+as a fallback when a shorter band cannot hold that grid. The relic list
 may scroll. The top bar does not. Padding and spacing inside the bands
 come from `layout.padding` and `layout.spacing`.
+
+On-screen words for Marks, Intel, Shadow Mastery, and the six informants
+come from `data/assassin.json` `labels`. Assassinate keeps
+`assassinate.display`. Internal ids stay in the economy files. The
+contract button stays on the left with its cost, and the shop button
+stays on the right. Prestige uses the Shadow Mastery label when a reset
+is available.
 
 Audio stays silent until real files are assigned: WAV effects in
 `unity/Playtest/Assets/Audio/SFX/` and MP3 music in

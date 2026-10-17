@@ -35,7 +35,10 @@ def test_presentation_bundle_matches_the_schema():
     assert layout["actorSplit"] == 0.5
     assert layout["heroScale"] == 0.85
     assert layout["generatorRowHeight"] == 72
+    assert layout["generatorColumns"] == 2
     assert 60 <= layout["generatorRowHeight"] <= 80
+    type_scale = bundle["presentation"]["type"]
+    assert type_scale["generatorSize"] + type_scale["bodySize"] + type_scale["barHeight"] <= layout["generatorRowHeight"]
     assert bundle["presentation"]["copy"]["shop"] == "Shop"
     assert bundle["presentation"]["copy"]["contract"] in ("Contract", "Shadow Contract")
     assert bundle["presentation"]["art"]["stageBackground"] == "Sprites/Backgrounds/cyberpunk_city.png"
@@ -209,6 +212,7 @@ def test_portrait_bands_come_from_presentation_not_literals():
         "middleAnchor",
         "bottomAnchor",
         "generatorRowHeight",
+        "generatorColumns",
         "actorSplit",
         "heroScale",
     ):
@@ -217,6 +221,7 @@ def test_portrait_bands_come_from_presentation_not_literals():
     assert "MiddleAnchor" in controller
     assert "BottomAnchor" in controller
     assert "GeneratorRowHeight" in controller
+    assert "GeneratorColumns" in controller
     assert "ScrollRect" in controller
     for literal in ("0.9f", "0.4f", "0.0f", "1080f", "1920f"):
         assert literal not in blob
@@ -303,6 +308,51 @@ def test_layout_anchors_and_row_height_are_required(tmp_path: Path):
     (directory / "presentation.json").write_text(json.dumps(tall), encoding="utf-8")
     with pytest.raises(ValueError, match="generatorRowHeight"):
         load_bundle(directory)
+
+
+def test_six_generators_fit_the_portrait_without_a_scroll():
+    presentation = json.loads((DATA / "presentation.json").read_text(encoding="utf-8"))
+    assassin = json.loads((DATA / "assassin.json").read_text(encoding="utf-8"))
+    generators = json.loads((DATA / "generators.json").read_text(encoding="utf-8"))
+    layout = presentation["layout"]
+    labels = assassin["labels"]
+    ids = [item["id"] for item in generators["generators"]]
+    names = [item["name"] for item in labels["informants"]]
+    informant_ids = [item["id"] for item in labels["informants"]]
+    assert len(ids) == 6
+    assert informant_ids == ids
+    assert labels["currency"] == "Marks"
+    assert labels["insight"] == "Intel"
+    assert labels["prestige"] == "Shadow Mastery"
+    assert assassin["assassinate"]["display"] == "ASSASSINATE"
+    for name, generator_id in zip(names, ids):
+        assert name != generator_id
+        assert "generator_" not in name
+        assert "Informant" in name
+    columns = layout["generatorColumns"]
+    rows = (len(ids) + columns - 1) // columns
+    needed = (
+        rows * layout["generatorRowHeight"]
+        + (rows - 1) * layout["spacing"]
+        + layout["padding"] * 2
+    )
+    band = layout["referenceHeight"] * (layout["topAnchor"] - layout["middleAnchor"])
+    chrome = layout["padding"] * 2 + layout["spacing"]
+    available = band - chrome - band * layout["stageFraction"]
+    assert rows == 3
+    assert needed == 312
+    assert needed <= available
+    stage = band - chrome - needed
+    assert stage > layout["referenceHeight"] * layout["stageFraction"]
+    bottom = layout["referenceHeight"] * (layout["middleAnchor"] - layout["bottomAnchor"])
+    assert bottom - layout["padding"] * 2 >= assassin["assassinate"]["buttonHeight"]
+    top = layout["referenceHeight"] * (1 - layout["topAnchor"])
+    assert top >= presentation["type"]["currencyMinHeight"]
+    controller = (ROOT / "unity" / "Playtest" / "Assets" / "PlaytestController.cs").read_text(encoding="utf-8")
+    assert "InformantName" in controller
+    assert "CurrencyLabel" in controller
+    assert "row.Name.text = row.Generator.Id" not in controller
+    assert "config.CurrencyId +" not in controller
 
 
 def test_bad_cosmetic_slot_is_rejected(tmp_path: Path):

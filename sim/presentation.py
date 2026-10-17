@@ -103,6 +103,9 @@ def _validate_presentation(payload: dict) -> None:
     row_height = _number(layout, "generatorRowHeight")
     if not 60 <= row_height <= 80:
         raise ValueError("presentation.json generatorRowHeight must sit between 60 and 80")
+    columns = layout.get("generatorColumns")
+    if isinstance(columns, bool) or not isinstance(columns, int) or columns < 1:
+        raise ValueError("presentation.json generatorColumns must be a positive integer")
     split = _number(layout, "actorSplit")
     if not 0 < split < 1:
         raise ValueError("presentation.json actorSplit must be between 0 and 1")
