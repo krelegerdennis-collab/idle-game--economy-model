@@ -149,6 +149,8 @@ baseline. With no logs, the playtest side stays blank. Logs marked
 `medium: webgl` skip that retention comparison; use the smoke-test output
 instead.
 
+The APK icon is `Assets/Icons/AppIcon.png`. In the Editor: Edit > Project Settings > Player > Android icon (Override), or menu Tools/Apply App Icon. Then File > Build Settings > Android > Build. The icon updates on the next APK install; Android caches launcher icons, so uninstall the old app if the phone still shows the Unity logo.
+
 ## WebGL-rooktest
 
 The WebGL build is a smoke test, not the retention playtest. It answers
