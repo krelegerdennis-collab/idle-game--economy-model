@@ -20,16 +20,16 @@ namespace Playtest
         sealed class LabeledButton
         {
             public Button Button;
-            public Text Label;
+            public TextMeshProUGUI Label;
             public RectTransform Rect;
         }
 
         sealed class GeneratorRow
         {
             public GeneratorConfig Generator;
-            public Text Name;
-            public Text Owned;
-            public Text Cost;
+            public TextMeshProUGUI Name;
+            public TextMeshProUGUI Owned;
+            public TextMeshProUGUI Cost;
             public Image BarFill;
             public Button Button;
             public RectTransform Rect;
@@ -53,12 +53,11 @@ namespace Playtest
         CharacterController hero;
         AssassinRunner assassinRunner;
         EnemyController enemies;
-        Font font;
         TMP_FontAsset tmpFont;
-        Text currencyText;
-        Text timeText;
-        Text insightText;
-        Text errorText;
+        TextMeshProUGUI currencyText;
+        TextMeshProUGUI timeText;
+        TextMeshProUGUI insightText;
+        TextMeshProUGUI errorText;
         LabeledButton prestigeButton;
         readonly List<GeneratorRow> generatorRows = new List<GeneratorRow>();
         readonly Dictionary<string, LabeledButton> contractButtons = new Dictionary<string, LabeledButton>();
@@ -88,8 +87,8 @@ namespace Playtest
         LabeledButton assassinateButton;
         Image assassinateFill;
         GameObject hvtWidget;
-        Text hvtTitle;
-        Text hvtTime;
+        TextMeshProUGUI hvtTitle;
+        TextMeshProUGUI hvtTime;
         double playClock;
         double assassinateReadyAt;
         int hvtTaps;
@@ -248,18 +247,7 @@ namespace Playtest
                 state = PlaytestState.NewGame(config);
             state.BeginSession();
             analytics.SetPlayer(state.PlayerId);
-            font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (font == null)
-                font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            try
-            {
-                if (font != null)
-                    tmpFont = TMP_FontAsset.CreateFontAsset(font);
-            }
-            catch (Exception)
-            {
-                tmpFont = null;
-            }
+            EnsureFont();
             Camera view = Camera.main;
             if (view != null)
                 view.backgroundColor = presentation.Background;
@@ -267,7 +255,7 @@ namespace Playtest
             audioManager.Open(presentation, gameObject);
             RectTransform shakeRoot = BuildUi();
             feedback = gameObject.AddComponent<PresentationFeedback>();
-            feedback.Bind(presentation, shakeRoot, view, tmpFont, font);
+            feedback.Bind(presentation, shakeRoot, view, tmpFont);
             SpawnActors(actorStage);
             ready = true;
             OpenSession();
@@ -805,9 +793,9 @@ namespace Playtest
                 presentation.CurrencyMinHeight,
                 presentation.Currency,
                 TextAnchor.MiddleLeft,
-                FontStyle.Bold);
+                FontStyles.Bold);
             timeText = MakeText(top, presentation.BodySize, presentation.BodyMinHeight, presentation.Text);
-            timeText.alignment = TextAnchor.MiddleCenter;
+            timeText.alignment = TmpAlign(TextAnchor.MiddleCenter);
             LayoutElement timeElement = timeText.GetComponent<LayoutElement>();
             timeElement.flexibleWidth = 1f;
             insightText = MakeIconRow(
@@ -817,7 +805,7 @@ namespace Playtest
                 presentation.BodyMinHeight,
                 presentation.Text,
                 TextAnchor.MiddleRight,
-                FontStyle.Normal);
+                FontStyles.Normal);
         }
 
         void BuildMiddle(RectTransform middle)
@@ -1057,9 +1045,9 @@ namespace Playtest
             chipElement.minHeight = presentation.BarHeight;
             chipElement.preferredHeight = presentation.BarHeight;
 
-            Text name = MakeText(nameLine.transform, presentation.GeneratorSize, presentation.GeneratorSize, presentation.Text);
-            name.alignment = TextAnchor.MiddleLeft;
-            name.horizontalOverflow = HorizontalWrapMode.Overflow;
+            TextMeshProUGUI name = MakeText(nameLine.transform, presentation.GeneratorSize, presentation.GeneratorSize, presentation.Text);
+            name.alignment = TmpAlign(TextAnchor.MiddleLeft);
+            name.enableWordWrapping = false;
             name.GetComponent<LayoutElement>().flexibleWidth = 1f;
 
             GameObject stats = new GameObject("Stats", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
@@ -1075,13 +1063,13 @@ namespace Playtest
             statsGroup.childControlHeight = true;
             statsGroup.childForceExpandWidth = false;
             statsGroup.childForceExpandHeight = true;
-            Text owned = MakeText(stats.transform, presentation.BodySize, presentation.BodySize, presentation.Text);
-            owned.alignment = TextAnchor.MiddleLeft;
-            owned.horizontalOverflow = HorizontalWrapMode.Overflow;
+            TextMeshProUGUI owned = MakeText(stats.transform, presentation.BodySize, presentation.BodySize, presentation.Text);
+            owned.alignment = TmpAlign(TextAnchor.MiddleLeft);
+            owned.enableWordWrapping = false;
             owned.GetComponent<LayoutElement>().flexibleWidth = 1f;
-            Text cost = MakeText(stats.transform, presentation.BodySize, presentation.BodySize, presentation.Currency);
-            cost.alignment = TextAnchor.MiddleRight;
-            cost.horizontalOverflow = HorizontalWrapMode.Overflow;
+            TextMeshProUGUI cost = MakeText(stats.transform, presentation.BodySize, presentation.BodySize, presentation.Currency);
+            cost.alignment = TmpAlign(TextAnchor.MiddleRight);
+            cost.enableWordWrapping = false;
             Image bar = MakeBar(row.transform);
             LayoutElement barElement = bar.transform.parent.GetComponent<LayoutElement>();
             barElement.ignoreLayout = true;
@@ -1111,7 +1099,7 @@ namespace Playtest
             return data;
         }
 
-        Text MakeIconRow(Transform parent, string iconPath, int size, float height, Color color, TextAnchor alignment, FontStyle style)
+        TextMeshProUGUI MakeIconRow(Transform parent, string iconPath, int size, float height, Color color, TextAnchor alignment, FontStyles style)
         {
             GameObject row = new GameObject("IconRow", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
             row.transform.SetParent(parent, false);
@@ -1142,9 +1130,9 @@ namespace Playtest
                 iconElement.minHeight = height;
                 iconElement.preferredHeight = height;
             }
-            Text text = MakeText(row.transform, size, height, color);
+            TextMeshProUGUI text = MakeText(row.transform, size, height, color);
             text.fontStyle = style;
-            text.alignment = alignment;
+            text.alignment = TmpAlign(alignment);
             if (alignment == TextAnchor.MiddleLeft || alignment == TextAnchor.UpperLeft || alignment == TextAnchor.LowerLeft)
             {
                 LayoutElement textElement = text.GetComponent<LayoutElement>();
@@ -1169,14 +1157,16 @@ namespace Playtest
                 presentation.PixelsPerUnit);
         }
 
+        void EnsureFont()
+        {
+            if (tmpFont != null)
+                return;
+            tmpFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+        }
+
         void ShowError(string message)
         {
-            if (font == null)
-            {
-                font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                if (font == null)
-                    font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            }
+            EnsureFont();
             Canvas canvas = FindObjectOfType<Canvas>();
             Transform parent;
             if (canvas == null)
@@ -1194,38 +1184,68 @@ namespace Playtest
             }
             if (errorText == null)
             {
-                int size = presentation == null ? font.fontSize : presentation.BodySize;
+                int size = presentation == null ? 1 : presentation.BodySize;
                 if (size < 1)
                     size = 1;
-                float height = presentation == null ? font.lineHeight : presentation.BodyMinHeight;
+                float height = presentation == null ? 1f : presentation.BodyMinHeight;
                 if (height < 1f)
                     height = 1f;
                 errorText = MakeText(parent, size, height, Color.white);
                 Stretch(errorText.rectTransform);
                 errorText.GetComponent<LayoutElement>().ignoreLayout = true;
-                errorText.alignment = TextAnchor.UpperLeft;
+                errorText.alignment = TmpAlign(TextAnchor.UpperLeft);
                 if (presentation == null)
-                    errorText.resizeTextForBestFit = true;
+                    errorText.enableAutoSizing = true;
             }
             errorText.text = message;
         }
 
-        Text MakeText(Transform parent, int size, float height, Color color)
+        TextMeshProUGUI MakeText(Transform parent, int size, float height, Color color)
         {
-            GameObject item = new GameObject("Text", typeof(RectTransform), typeof(Text), typeof(LayoutElement));
+            GameObject item = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI), typeof(LayoutElement));
             item.transform.SetParent(parent, false);
-            Text text = item.GetComponent<Text>();
-            text.font = font;
+            TextMeshProUGUI text = item.GetComponent<TextMeshProUGUI>();
+            if (tmpFont != null)
+                text.font = tmpFont;
             text.fontSize = size;
             text.color = color;
-            text.alignment = TextAnchor.MiddleLeft;
-            text.horizontalOverflow = HorizontalWrapMode.Wrap;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
+            text.alignment = TmpAlign(TextAnchor.MiddleLeft);
+            text.enableWordWrapping = true;
+            text.overflowMode = TextOverflowModes.Overflow;
+            text.richText = false;
             text.raycastTarget = false;
+            text.margin = Vector4.zero;
             LayoutElement element = item.GetComponent<LayoutElement>();
             element.minHeight = height;
             element.preferredHeight = height;
             return text;
+        }
+
+        static TextAlignmentOptions TmpAlign(TextAnchor anchor)
+        {
+            switch (anchor)
+            {
+                case TextAnchor.UpperLeft:
+                    return TextAlignmentOptions.TopLeft;
+                case TextAnchor.UpperCenter:
+                    return TextAlignmentOptions.Top;
+                case TextAnchor.UpperRight:
+                    return TextAlignmentOptions.TopRight;
+                case TextAnchor.MiddleLeft:
+                    return TextAlignmentOptions.MidlineLeft;
+                case TextAnchor.MiddleCenter:
+                    return TextAlignmentOptions.Midline;
+                case TextAnchor.MiddleRight:
+                    return TextAlignmentOptions.MidlineRight;
+                case TextAnchor.LowerLeft:
+                    return TextAlignmentOptions.BottomLeft;
+                case TextAnchor.LowerCenter:
+                    return TextAlignmentOptions.Bottom;
+                case TextAnchor.LowerRight:
+                    return TextAlignmentOptions.BottomRight;
+                default:
+                    return TextAlignmentOptions.MidlineLeft;
+            }
         }
 
         LabeledButton MakeButton(Transform parent, float height, UnityEngine.Events.UnityAction action)
@@ -1239,9 +1259,9 @@ namespace Playtest
             Button button = item.GetComponent<Button>();
             StyleButton(button);
             button.onClick.AddListener(action);
-            Text label = MakeText(item.transform, presentation.BodySize, height - presentation.Spacing, presentation.ButtonText);
+            TextMeshProUGUI label = MakeText(item.transform, presentation.BodySize, height - presentation.Spacing, presentation.ButtonText);
             Stretch(label.rectTransform);
-            label.alignment = TextAnchor.MiddleCenter;
+            label.alignment = TmpAlign(TextAnchor.MiddleCenter);
             label.GetComponent<LayoutElement>().ignoreLayout = true;
             return new LabeledButton
             {
@@ -1591,12 +1611,12 @@ namespace Playtest
             fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             hvtTitle = MakeText(widget.transform, presentation.GeneratorSize, presentation.BodyMinHeight, presentation.Critical);
-            hvtTitle.alignment = TextAnchor.MiddleRight;
-            hvtTitle.horizontalOverflow = HorizontalWrapMode.Overflow;
+            hvtTitle.alignment = TmpAlign(TextAnchor.MiddleRight);
+            hvtTitle.enableWordWrapping = false;
             hvtTitle.text = assassin.HvtTitle;
             hvtTime = MakeText(widget.transform, presentation.BodySize, presentation.BodyMinHeight, presentation.Text);
-            hvtTime.alignment = TextAnchor.MiddleRight;
-            hvtTime.horizontalOverflow = HorizontalWrapMode.Overflow;
+            hvtTime.alignment = TmpAlign(TextAnchor.MiddleRight);
+            hvtTime.enableWordWrapping = false;
             hvtWidget = widget;
             hvtWidget.SetActive(false);
         }
@@ -1676,10 +1696,10 @@ namespace Playtest
             float labelHeight = height - presentation.Spacing;
             if (labelHeight < presentation.BodyMinHeight)
                 labelHeight = presentation.BodyMinHeight;
-            Text label = MakeText(item.transform, assassin.LabelSize, labelHeight, presentation.Critical);
+            TextMeshProUGUI label = MakeText(item.transform, assassin.LabelSize, labelHeight, presentation.Critical);
             Stretch(label.rectTransform);
-            label.alignment = TextAnchor.MiddleCenter;
-            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            label.alignment = TmpAlign(TextAnchor.MiddleCenter);
+            label.enableWordWrapping = false;
             label.text = assassin.Display;
             label.GetComponent<LayoutElement>().ignoreLayout = true;
             return new LabeledButton

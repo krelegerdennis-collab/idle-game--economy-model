@@ -13,14 +13,12 @@ namespace Playtest
         float shakeUntil;
         ParticleSystem confetti;
         TMP_FontAsset fontAsset;
-        Font builtinFont;
 
-        public void Bind(PresentationConfig source, RectTransform shakeRoot, Camera camera, TMP_FontAsset tmpFont, Font font)
+        public void Bind(PresentationConfig source, RectTransform shakeRoot, Camera camera, TMP_FontAsset tmpFont)
         {
             presentation = source;
             root = shakeRoot;
             view = camera;
-            builtinFont = font;
             fontAsset = tmpFont;
             if (view != null)
                 cameraRest = view.transform.localPosition;
@@ -90,25 +88,18 @@ namespace Playtest
 
         Graphic CreateLabel(Transform parent, string text, Color color)
         {
+            TextMeshProUGUI label = parent.gameObject.AddComponent<TextMeshProUGUI>();
             if (fontAsset != null)
-            {
-                TextMeshProUGUI label = parent.gameObject.AddComponent<TextMeshProUGUI>();
                 label.font = fontAsset;
-                label.fontSize = presentation.GeneratorSize;
-                label.alignment = TextAlignmentOptions.Center;
-                label.color = color;
-                label.text = text;
-                label.raycastTarget = false;
-                return label;
-            }
-            Text labelText = parent.gameObject.AddComponent<Text>();
-            labelText.font = builtinFont;
-            labelText.fontSize = presentation.GeneratorSize;
-            labelText.alignment = TextAnchor.MiddleCenter;
-            labelText.color = color;
-            labelText.text = text;
-            labelText.raycastTarget = false;
-            return labelText;
+            label.fontSize = presentation.GeneratorSize;
+            label.alignment = TextAlignmentOptions.Center;
+            label.color = color;
+            label.text = text;
+            label.richText = false;
+            label.raycastTarget = false;
+            label.enableWordWrapping = false;
+            label.overflowMode = TextOverflowModes.Overflow;
+            return label;
         }
 
         ParticleSystem CreateConfetti()

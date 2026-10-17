@@ -69,7 +69,13 @@ def test_client_reads_theme_from_data_not_from_literals():
     for literal in ("#0A0A1A", "#00FFFF", "#FFD700", "#FF69B4"):
         assert literal not in blob
     assert "ParticleSystem" in blob
-    assert "TextMeshPro" in blob
+    assert "TextMeshProUGUI" in blob
+    assert "LegacyRuntime" not in blob
+    assert "Arial.ttf" not in blob
+    assert "GetBuiltinResource" not in blob
+    font = ROOT / "unity" / "Playtest" / "Assets" / "TextMesh Pro" / "Resources" / "Fonts & Materials" / "LiberationSans SDF.asset"
+    assert "m_AtlasPopulationMode: 0" in font.read_text(encoding="utf-8")
+    assert "Fonts & Materials/LiberationSans SDF" in blob
     assert "Audio/Music" not in blob
     assert "hat_placeholder" not in blob
 

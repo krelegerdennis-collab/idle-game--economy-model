@@ -244,10 +244,10 @@ StreamingAssets. Those textures import with point filtering and
 compression set to none. A loaded sprite is drawn at its own colors. The
 actor `color` is only the rectangle fallback.
 
-TextMeshPro draws the floating numbers. Unity 2022 still needs its own TMP
-package (`com.unity.textmeshpro` in `Packages/manifest.json`). If the font
-asset cannot be created, those numbers fall back to the built-in UI font.
-The economy counters stay on that built-in font either way.
+TextMeshProUGUI draws the labels and the floating numbers from the shipped
+LiberationSans SDF in `Assets/TextMesh Pro`. Both input backends stay on
+(`activeInputHandler: 2`). The playtest does not load the LegacyRuntime or
+Arial builtin fonts.
 
 There is no combat crit in the frozen economy. The critical color marks a
 purchase that costs at least `largePurchaseCostShare` of the wallet, or a
