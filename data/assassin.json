@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "assassinate": {
+    "display": "ASSASSINATE",
+    "baseAmount": 100,
+    "perGenerator": 0.1,
+    "cooldownSeconds": 5,
+    "backstabChance": 0.15,
+    "backstabMultiplier": 3,
+    "backstabLabel": "BACKSTAB! {amount} MARKS",
+    "backstabFlashSeconds": 0.28,
+    "buttonHeight": 160,
+    "buttonWidthFraction": 0.34,
+    "labelSize": 32
+  },
+  "highValueTarget": {
+    "title": "HIGH-VALUE TARGET",
+    "firstDelaySeconds": 300,
+    "intervalSeconds": 300,
+    "windowSeconds": 60,
+    "tapsRequired": 5,
+    "reward": 5000,
+    "failCooldownSeconds": 600
+  },
+  "backgroundMotion": {
+    "amplitude": 0.04,
+    "periodSeconds": 18
+  },
+  "vignetteAlpha": 0.45,
+  "vignetteTexels": 64,
+  "vignetteInner": 0.42,
+  "skyTints": [
+    {"owned": 0, "color": "#3E5C94"},
+    {"owned": 50, "color": "#7A3EAE"},
+    {"owned": 100, "color": "#FF2D55"}
+  ],
+  "prestigeFlashSeconds": 0.35,
+  "labels": {
+    "currency": "Marks",
+    "insight": "Intel",
+    "prestige": "Shadow Mastery",
+    "informants": [
+      {"id": "generator_1", "name": "Street Informant"},
+      {"id": "generator_2", "name": "Alley Informant"},
+      {"id": "generator_3", "name": "Market Informant"},
+      {"id": "generator_4", "name": "Harbor Informant"},
+      {"id": "generator_5", "name": "Tower Informant"},
+      {"id": "generator_6", "name": "Palace Informant"}
+    ],
+    "relics": [
+      {"id": "offline_ledger", "name": "Night Ledger"},
+      {"id": "workshop_key", "name": "Workshop Key"},
+      {"id": "fifth_slot", "name": "Fifth Slot"},
+      {"id": "return_flare", "name": "Return Flare"}
+    ]
+  },
+  "animation": {
+    "sheet": "Sprites/Characters/assassin_sheet.png",
+    "defaultState": "Run",
+    "attackState": "Attack",
+    "idleState": "Idle",
+    "attackTrigger": "Attack",
+    "runningParameter": "IsRunning",
+    "states": {
+      "Run": {
+        "fps": 12,
+        "loop": true,
+        "frames": [
+          "Sprites/Characters/assassin_run_0.png",
+          "Sprites/Characters/assassin_run_1.png",
+          "Sprites/Characters/assassin_run_2.png",
+          "Sprites/Characters/assassin_run_3.png"
+        ]
+      },
+      "Attack": {
+        "fps": 15,
+        "loop": false,
+        "frames": [
+          "Sprites/Characters/assassin_attack_0.png",
+          "Sprites/Characters/assassin_attack_1.png",
+          "Sprites/Characters/assassin_attack_2.png"
+        ]
+      },
+      "Idle": {
+        "fps": 6,
+        "loop": true,
+        "frames": [
+          "Sprites/Characters/assassin_idle_0.png",
+          "Sprites/Characters/assassin_idle_1.png"
+        ]
+      }
+    }
+  }
+}

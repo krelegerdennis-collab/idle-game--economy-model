@@ -29,8 +29,11 @@ The game engine comes later. The math comes first.
 - Analytics events: session_begin, upgrade_purchase, prestige_trigger.
 
 ## Rules for the agent
-- Do not propose art, narrative, or UI work. This phase is economy-only.
-- Do not hardcode values in code. All values live in /data/.
+- Do not retune economy numbers. The generator curve, prestige, and
+  `exports/runs/baseline.json` stay frozen.
+- Do not hardcode values in code. Economy numbers live in the economy
+  files under /data/. Playtest colors, type, audio ids, and cosmetics live
+  in `data/presentation.json`, `data/cosmetics.json`, and `data/season_pass.json`.
 - Every formula change must include a before/after simulation run.
 - If a change would break a retention constraint, stop and explain why.
 
@@ -105,8 +108,12 @@ regenerate `exports/runs/baseline.json` to chase a cohort.
 `Assets/Playtest.unity`. The scene has a camera and one behaviour. Counters
 and buttons are built at runtime from
 `Assets/StreamingAssets/economy_config.json`. That file must stay
-byte-identical to `exports/unity/economy_config.json`. There is no art,
-narrative, or menu, and no analytics SDK.
+byte-identical to `exports/unity/economy_config.json`. The same folder
+also carries `presentation.json`, `cosmetics.json`, and `season_pass.json`,
+each byte-identical to the file of the same name in `data/`. Placeholder
+rectangles stand in for sprites. There is no finished art, narrative, or
+menu, and no analytics SDK. Cosmetics and the season pass do not change
+production, and the client does not sell them.
 
 The client reads the single-purchase curve in the export. A branch with a
 `structure` field stops the client. The prestige button appears when a
@@ -141,6 +148,8 @@ logs do not cover that many days. `python -m sim.compare_playtest_to_sim
 baseline. With no logs, the playtest side stays blank. Logs marked
 `medium: webgl` skip that retention comparison; use the smoke-test output
 instead.
+
+The APK icon is `Assets/Icons/AppIcon.png` via `PlayerSettings.defaultIcon`; uninstall the old app if Android shows a cached icon.
 
 ## WebGL-rooktest
 
@@ -183,3 +192,242 @@ secrets once, then re-run the workflow:
    settings, do it once in the repository settings.
 
 Do not retune `data/` because a WebGL build failed.
+
+## Art and audio pipeline
+
+The playtest theme is data, not a retune of the economy. `data/presentation.json`
+holds colors, type sizes, feedback, audio ids, and the placeholder actors.
+`data/cosmetics.json` and `data/season_pass.json` are the cosmetic schema.
+`sim/run_simulation.py` skips those three files, and `relics.json`, when it
+hashes the frozen curve. Do not regenerate `exports/runs/baseline.json`
+because a sprite or a track was added. Do not grant currency, insight, or
+prestige points from a cosmetic, a season reward, or `is_premium`.
+
+`price_tier` is a label. This client has no store and no in-app purchase.
+Premium rows are text only.
+
+Drop finished files in these folders. The code reads ids from the JSON, so
+a new file does not need a code change:
+
+- Sprites: `unity/Playtest/Assets/Sprites/Characters/`,
+  `unity/Playtest/Assets/Sprites/Enemies/`,
+  `unity/Playtest/Assets/Sprites/UI/`. PNG with transparency.
+  `sprite_path` in `data/cosmetics.json` is the path under `Assets/Sprites/`.
+- Music: `unity/Playtest/Assets/Audio/Music/`. MP3.
+- Effects: `unity/Playtest/Assets/Audio/SFX/`. WAV.
+
+The audio id in `presentation.json` is the path without `Assets/` and
+without the extension, for example `Audio/Music/idle`. An editor import
+writes the clip onto `Assets/Resources/AudioLibrary.asset`. Music files
+are MP3 in `unity/Playtest/Assets/Audio/Music/`. Effect files are WAV in
+`unity/Playtest/Assets/Audio/SFX/`. `AudioManager` keeps `musicClips` and
+`sfxClips` empty until those files exist, and it plays only from the
+array that has a clip. The game stays silent until clips are assigned.
+
+Enemies use `Assets/Resources/Animators/PixelActor.controller` with states
+Idle, Attack, Celebrate, and Hurt. Each actor is an Image on the UI
+canvas, in the middle band described under UI Layout. The hero is one
+large Image on the top-right of the fight scene and plays the assassin
+sheet from Assassin Animation. Enemies sit
+in the left and center of that stage, large enough to read. The backdrop
+is the supplied cyberpunk city,
+`unity/Playtest/Assets/Sprites/Backgrounds/cyberpunk_city.png`,
+drawn as a full-screen Image with preserve aspect off, behind the bands.
+The same PNG bytes are copied under StreamingAssets. The
+five classes in `art.classes` stay in the data. The client does not draw
+them and does not swap the picture. `art.defaultClass` stays `rogue`.
+The hero picture is the assassin run cycle, not that class row.
+`art.classPrefKey` is
+unused and does not change production. Enemy, UI, and background PNGs
+are cut from the same sheet into `Assets/Sprites/` and copied to
+StreamingAssets. Those textures import with point filtering and
+compression set to none. A loaded sprite is drawn at its own colors. The
+actor `color` is only the rectangle fallback.
+
+TextMeshProUGUI draws the labels and the floating numbers from the shipped
+LiberationSans SDF in `Assets/TextMesh Pro`. Both input backends stay on
+(`activeInputHandler: 2`). The playtest does not load the LegacyRuntime or
+Arial builtin fonts.
+
+There is no combat crit in the frozen economy. The critical color marks a
+purchase that costs at least `largePurchaseCostShare` of the wallet, or a
+generator purchase that lands on an owned-copy milestone from the export.
+Confetti plays on that milestone and on prestige. The boss track starts
+once lifetime currency reaches `bossApproachRatio` of the lifetime the
+exported prestige formula needs for `minPointsToPrestige`.
+
+## Assassin Theme
+
+Assassinate and the timed high-value target are playtest-only. The frozen
+simulation does not grant either payout, so playtest currency and lifetime
+diverge from the curve once a player uses them. `data/assassin.json` holds
+every new number and string. A byte-identical copy sits in StreamingAssets.
+`data_fingerprint` skips `assassin.json` next to `presentation.json`, and
+`model/load.py` does not list it in `DATA_FILES`. Do not add the payout to
+the Python sim, and do not regenerate `exports/runs/baseline.json`.
+
+The economy contract is unchanged. Dip and peak purchase stay on the
+exported branch, and the sim still declines the offer by default. The
+contract button keeps the display string `Contract`. It is not the timed
+target. That target is a separate widget.
+
+The Assassinate button is the large control at the bottom center. Its
+label and the backstab flash use the critical color already loaded from
+the presentation theme. The burst is `baseAmount * (1 + total owned
+generators * perGenerator)`. A backstab, rolled with `UnityEngine.Random`
+against `backstabChance`, multiplies that burst by `backstabMultiplier`,
+shakes the screen, and floats `backstabLabel`. The button shows a radial
+fill for `cooldownSeconds` and does not accept taps while it is cooling
+down. The grant is added to currency and lifetime the same way offline
+pay adds them.
+
+The high-value target starts its timer when play begins. After
+`firstDelaySeconds` the widget appears at the top right of the fight
+scene with the title and the seconds left in `windowSeconds`. Only
+Assassinate taps during that window count. Five taps, from `tapsRequired`,
+grant `reward` to currency and lifetime, play the existing gold confetti,
+and log `hvt_completed`. The next spawn waits `intervalSeconds`. If the
+window times out, the widget hides, the log records `hvt_failed`, and the
+next spawn waits `failCooldownSeconds`. Appearance logs `hvt_spawned`.
+An Assassinate tap logs `assassinate_triggered` with the player id, an
+ISO-8601 UTC timestamp, the amount, and whether it was a backstab.
+`backstab_triggered` is logged only when the roll hits.
+
+The city image drifts left and right. `backgroundMotion.amplitude` is a
+fraction of the canvas width and `periodSeconds` is one full ping-pong.
+The picture itself is not a new drawing. A vignette is a runtime texture,
+not a painted file: `presentation.Background` darkens the edges at
+`vignetteAlpha`, and the center stays clear. Sky tint lerps
+`background Image.color` through the `skyTints` stops by total generators
+owned (0, 50, 100). The blend is smooth. Prestige does not retune the
+economy. A fullscreen white flash lasts `prestigeFlashSeconds`.
+
+Unity Editor was not run for these hooks, so Play mode was not checked.
+
+## Assassin Animation
+
+The hero is a UI Image on the fight-scene canvas. Clips animate
+`Image.sprite` (`m_Sprite` on `UnityEngine.UI.Image`). They do not drive a
+world sprite renderer, and the hero does not patrol across the screen.
+
+`unity/Playtest/Assets/Sprites/Characters/assassin_sheet.png` is the
+supplied sheet with the checkerboard keyed out. The same bytes are copied
+to StreamingAssets. The sheet is not a 3x3. Tight crops, also copied
+byte-for-byte under `StreamingAssets/Sprites/Characters/`:
+
+- Run, four frames, 12 fps, looping: `assassin_run_0.png` through
+  `assassin_run_3.png`. The character runs to the right and the cape moves.
+- Attack, three frames, 15 fps, not looping: `assassin_attack_0.png`
+  through `assassin_attack_2.png`. Wind-up, the cyan slash, then recovery.
+- Idle, two frames, 6 fps, looping: `assassin_idle_0.png` and
+  `assassin_idle_1.png`. Standing, with a small breathing change.
+
+Counts and rates live in `data/assassin.json` under `animation`, with a
+byte-identical StreamingAssets copy. `AssassinRunner` reads that fps for
+the timer that swaps the hero Image when the imported clips are not bound.
+The editor clips still use 12, 15, and 6 as their sample rates.
+
+`Tools/Slice Assassin Sheet` is the menu on
+`unity/Playtest/Assets/Editor/SpriteSheetSlicer.cs`. It sets Sprite (2D and
+UI), Point filtering, and no compression, and writes rects for this 4 / 3 /
+2 sheet. An enemy sheet can later use the same slicer with its own rects.
+
+`unity/Playtest/Assets/Animations/AssassinAnimator.controller` has states
+Run, Attack, and Idle. Run is the default. `IsRunning` keeps Run while it
+is true and Idle while it is false. The playtest starts in Run. The Attack
+trigger plays the strike. Attack has exit time, does not loop, and returns
+to Run when the clip ends. The Assassinate button calls
+`AssassinRunner.Attack`, which sets that trigger. Burst, cooldown,
+backstab, and the high-value target are unchanged.
+
+Unity Editor was not run, so press Play in the Editor to see the cycle.
+
+## UI Layout
+
+The playtest is one portrait screen. `PlaytestController` builds a single
+Canvas with Render Mode Screen Space - Overlay. The CanvasScaler uses
+Scale With Screen Size. Reference resolution and match come from
+`data/presentation.json`: `layout.referenceWidth` 1080,
+`layout.referenceHeight` 1920, and `layout.matchWidthOrHeight` 0.5.
+C# reads those fields. It does not hardcode them.
+
+Three bands divide the screen. Their edges are anchors from the same
+`layout` object, so 1080×1920 and a taller 1080×2400 phone keep the same
+fractions:
+
+- Top, from `topAnchor` (0.9) to the top of the screen. Marks on
+  the left with the coin icon, large and bold (`type.currencySize`).
+  The word is `labels.currency` in `data/assassin.json`, not the
+  currency id. Session time in the center (`type.bodySize`). Intel on
+  the right with the crystal icon (`labels.insight`).
+- Middle, from `middleAnchor` (0.15) to `topAnchor` (0.9). This is the
+  fight scene. There is no class picker and no row of class Images. The
+  hero is the animated assassin, held in the top-right slot. One large
+  Image is anchored to the top-right of the stage. Its height is
+  `heroScale` (0.85) of that stage, and its width follows `actors.hero`
+  width and height so the pixel art keeps its aspect. `actorSplit` (0.5)
+  keeps the hero on the right. Enemies are Images in the left and center. On the
+  tall portrait stage they stack, so they read as a fight and not as a
+  class-select row. They do not sit under the hero or the buttons.
+  Generator buys are buttons on this same band, under the stage, in a
+  grid. Column count is `layout.generatorColumns` (2). Row height is
+  `layout.generatorRowHeight` (72, inside 60–80). Cell inset is
+  `layout.spacing`. Six generators are three rows. Each button shows the
+  informant display name from `assassin.json` `labels.informants`, the
+  owned count, and the cost, tinted with the theme button colors. The
+  name sits on the first line and the count and cost on the second, and
+  `generatorSize + bodySize + barHeight` stays within the row (28 + 24 +
+  18 = 70, under 72). On the 1080×1920 reference the grid is 312
+  reference pixels tall: 3×72, two gaps of `spacing` 16, and `padding`
+  32 above and below the list. The middle band is 1440 tall. After the
+  band's own padding and the gap above the grid (80) and a fight-scene
+  reserve of `stageFraction` 0.22 (about 317), 1043 pixels remain, so
+  the 312-pixel grid fits. The scroll view does not scroll. The stage
+  keeps the rest, about 1048 pixels, so the city, the assassin, and the
+  enemies stay on screen with all six buttons. The character Image uses
+  preserve aspect. The background Image does not. The list background is
+  clear, so the city shows between the buttons.
+- Bottom, from `bottomAnchor` (0.0) to `middleAnchor` (0.15). A clear
+  strip, not a black panel. The contract button stays on the left and is
+  shown only while the offer is open. The large Assassinate button is the
+  bottom-center control. Prestige stays on the right, and the shop button
+  sits on that same side. Shop opens the relic list in the generator slot.
+  It is not a store and it does not sell anything. Season and cosmetic lines
+  sit in that list. These controls stay below the hero.
+
+A full-screen background Image is parented to the canvas behind the
+bands. It is `Sprites/Backgrounds/cyberpunk_city.png`. Preserve aspect is
+off. The rect drifts for the slow parallax in Assassin Theme, and a
+vignette sits above the picture and below the bands. Point filtering and
+no compression come from the sprite importer. A sprite loaded with
+`LoadImage` at runtime uses point filtering too. The top bar uses the theme background color so
+the numbers stay readable. The middle and bottom stay clear so the stage
+art shows through. Class choice does not change the picture.
+
+`ProjectSettings` `defaultScreenOrientation` is `0`. In Unity 2022.3
+`UIOrientation` that value is Portrait. PortraitUpsideDown is 1,
+LandscapeRight is 2, LandscapeLeft is 3, and AutoRotation is 4. Portrait
+autorotation is allowed. Landscape is not. `activeInputHandler` stays 2.
+
+The generator grid does not scroll on the 1080×1920 reference, because
+all six buttons fit under the fight scene. The scroll view stays only
+as a fallback when a shorter band cannot hold that grid. The relic list
+may scroll. The top bar does not. Padding and spacing inside the bands
+come from `layout.padding` and `layout.spacing`.
+
+On-screen words for Marks, Intel, Shadow Mastery, and the six informants
+come from `data/assassin.json` `labels`. Assassinate keeps
+`assassinate.display`. Internal ids stay in the economy files. The
+contract button stays on the left with its cost, and the shop button
+stays on the right. Prestige uses the Shadow Mastery label when a reset
+is available.
+
+Audio stays silent until real files are assigned: WAV effects in
+`unity/Playtest/Assets/Audio/SFX/` and MP3 music in
+`unity/Playtest/Assets/Audio/Music/`. `AudioManager` keeps `musicClips`
+and `sfxClips` empty until those clips exist, and it does not synthesize
+a tone.
+
+Unity Editor was not run for this layout, so Game View and an Android
+build were not checked. The anchors are resolution-independent by
+construction.

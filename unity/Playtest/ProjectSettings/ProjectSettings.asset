@@ -9,6 +9,7 @@ PlayerSettings:
   productName: Economy Playtest
   defaultScreenWidth: 1080
   defaultScreenHeight: 1920
+  # Unity 2022.3 UIOrientation: Portrait = 0, PortraitUpsideDown = 1, LandscapeRight = 2, LandscapeLeft = 3, AutoRotation = 4.
   defaultScreenOrientation: 0
   bundleVersion: 0.1.0
   applicationIdentifier:
@@ -29,3 +30,165 @@ PlayerSettings:
   resetResolutionOnWindowResize: 0
   androidSupportedAspectRatio: 1
   androidMaxAspectRatio: 2.1
+  activeInputHandler: 2
+  # Default application icon. Unity 2022.3 stores it as the empty m_BuildTarget
+  # entry in m_BuildTargetIcons. fileID 2800000 is the Texture2D main object
+  # for this Default texture (textureType 0).
+  defaultIcon: {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+  m_BuildTargetIcons:
+  - m_BuildTarget: 
+    m_Icons:
+    - serializedVersion: 2
+      m_Icon: {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 128
+      m_Height: 128
+      m_Kind: 0
+  - m_BuildTarget: Android
+    m_Icons:
+    - serializedVersion: 2
+      m_Icon: {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 192
+      m_Height: 192
+      m_Kind: 0
+    - serializedVersion: 2
+      m_Icon: {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 144
+      m_Height: 144
+      m_Kind: 0
+    - serializedVersion: 2
+      m_Icon: {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 96
+      m_Height: 96
+      m_Kind: 0
+    - serializedVersion: 2
+      m_Icon: {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 72
+      m_Height: 72
+      m_Kind: 0
+    - serializedVersion: 2
+      m_Icon: {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 48
+      m_Height: 48
+      m_Kind: 0
+    - serializedVersion: 2
+      m_Icon: {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 36
+      m_Height: 36
+      m_Kind: 0
+  m_BuildTargetPlatformIcons:
+  - m_BuildTarget: Android
+    m_Icons:
+    - m_Textures:
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 432
+      m_Height: 432
+      m_Kind: 2
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 324
+      m_Height: 324
+      m_Kind: 2
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 216
+      m_Height: 216
+      m_Kind: 2
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 162
+      m_Height: 162
+      m_Kind: 2
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 108
+      m_Height: 108
+      m_Kind: 2
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 81
+      m_Height: 81
+      m_Kind: 2
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 192
+      m_Height: 192
+      m_Kind: 1
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 144
+      m_Height: 144
+      m_Kind: 1
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 96
+      m_Height: 96
+      m_Kind: 1
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 72
+      m_Height: 72
+      m_Kind: 1
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 48
+      m_Height: 48
+      m_Kind: 1
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 36
+      m_Height: 36
+      m_Kind: 1
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 192
+      m_Height: 192
+      m_Kind: 0
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 144
+      m_Height: 144
+      m_Kind: 0
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 96
+      m_Height: 96
+      m_Kind: 0
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 72
+      m_Height: 72
+      m_Kind: 0
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 48
+      m_Height: 48
+      m_Kind: 0
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: c4e0b001a11c4f0a9d2e3f4a5b6c7d01, type: 3}
+      m_Width: 36
+      m_Height: 36
+      m_Kind: 0
+      m_SubKind: 

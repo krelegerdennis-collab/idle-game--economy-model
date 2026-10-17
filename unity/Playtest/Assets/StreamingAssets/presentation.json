@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "theme": {
+    "background": "#0A0A1A",
+    "text": "#00FFFF",
+    "currency": "#FFD700",
+    "critical": "#FF69B4",
+    "bar": "#00FFFF",
+    "barTrack": "#141428",
+    "button": "#16162E",
+    "buttonText": "#00FFFF",
+    "glow": "#00FFFF",
+    "glowDistance": 3,
+    "glowAlpha": 0.85,
+    "iconPalette": ["#00FFFF", "#FFD700", "#FF69B4", "#7CFF6B", "#C0C8D8", "#9B7CFF"]
+  },
+  "type": {
+    "currencySize": 56,
+    "generatorSize": 28,
+    "bodySize": 24,
+    "currencyMinHeight": 96,
+    "bodyMinHeight": 40,
+    "buttonMinHeight": 88,
+    "classButton": 104,
+    "barHeight": 18
+  },
+  "layout": {
+    "referenceWidth": 1080,
+    "referenceHeight": 1920,
+    "padding": 32,
+    "spacing": 16,
+    "stageFraction": 0.22,
+    "matchWidthOrHeight": 0.5,
+    "topAnchor": 0.9,
+    "middleAnchor": 0.15,
+    "bottomAnchor": 0.0,
+    "generatorRowHeight": 72,
+    "generatorColumns": 2,
+    "actorSplit": 0.5,
+    "heroScale": 0.85
+  },
+  "feedback": {
+    "floatSeconds": 0.85,
+    "floatRise": 140,
+    "shakeSeconds": 0.18,
+    "shakePixels": 14,
+    "shakeFrequency": 48,
+    "cameraUnitsPerPixel": 0.004,
+    "confettiCount": 42,
+    "confettiSeconds": 1.1,
+    "confettiSpeed": 3.5,
+    "confettiSize": 0.12,
+    "confettiRadius": 0.4,
+    "largePurchaseCostShare": 0.5
+  },
+  "audio": {
+    "idleTrack": "Audio/Music/idle",
+    "bossTrack": "Audio/Music/boss",
+    "clickSfx": "Audio/SFX/click",
+    "upgradeSfx": "Audio/SFX/upgrade",
+    "critSfx": "Audio/SFX/crit",
+    "extensions": [".wav", ".mp3"],
+    "bossApproachRatio": 0.8,
+    "placeholder": {
+      "idleHz": 220,
+      "bossHz": 110,
+      "clickHz": 880,
+      "upgradeHz": 660,
+      "critHz": 1320,
+      "loopSeconds": 1.5,
+      "sfxSeconds": 0.08,
+      "sampleRate": 22050,
+      "amplitude": 0.2
+    }
+  },
+  "actors": {
+    "animatorResource": "Animators/PixelActor",
+    "pixelsPerUnit": 64,
+    "cueSeconds": 0.35,
+    "idleState": "Idle",
+    "states": ["Idle", "Attack", "Celebrate", "Hurt"],
+    "purchaseHero": "Attack",
+    "purchaseEnemy": "Hurt",
+    "prestigeHero": "Celebrate",
+    "prestigeEnemy": "Idle",
+    "milestoneHero": "Celebrate",
+    "milestoneEnemy": "Hurt",
+    "hero": {
+      "id": "hero",
+      "color": "#7AD7FF",
+      "width": 174,
+      "height": 238,
+      "x": -1.6,
+      "y": 3.9,
+      "sprite_path": "Sprites/Characters/assassin_run_0.png"
+    },
+    "enemies": [
+      {"id": "slime", "color": "#7CFF6B", "width": 131, "height": 102, "x": -0.2, "y": 3.4, "sprite_path": "Sprites/Enemies/slime.png"},
+      {"id": "dragon", "color": "#FF5A7A", "width": 146, "height": 153, "x": 1.1, "y": 3.7, "sprite_path": "Sprites/Enemies/dragon.png"},
+      {"id": "mech", "color": "#C0C8D8", "width": 105, "height": 160, "x": 2.2, "y": 3.5, "sprite_path": "Sprites/Enemies/mecha.png"}
+    ],
+    "poses": {
+      "Idle": 1,
+      "Attack": 1.08,
+      "Celebrate": 1.16,
+      "Hurt": 0.9
+    }
+  },
+  "art": {
+    "stageBackground": "Sprites/Backgrounds/cyberpunk_city.png",
+    "currencyIcon": "Sprites/UI/coin.png",
+    "insightIcon": "Sprites/UI/insight_crystal.png",
+    "prestigeIcon": "Sprites/UI/prestige_button.png",
+    "classPrefKey": "playtest_class",
+    "defaultClass": "rogue",
+    "classes": [
+      {"id": "swordsman", "name": "Swordsman", "sprite_path": "Sprites/Characters/swordsman.png"},
+      {"id": "mage", "name": "Mage", "sprite_path": "Sprites/Characters/mage.png"},
+      {"id": "summoner", "name": "Summoner", "sprite_path": "Sprites/Characters/summoner.png"},
+      {"id": "archer", "name": "Archer", "sprite_path": "Sprites/Characters/archer.png"},
+      {"id": "rogue", "name": "Rogue", "sprite_path": "Sprites/Characters/rogue.png"}
+    ]
+  },
+  "copy": {
+    "time": "tijd",
+    "contract": "Contract",
+    "prestige": "Prestige",
+    "relic": "Koop relic",
+    "download": "Log downloaden",
+    "dip": "dip",
+    "peak": "piek",
+    "premium": "premium",
+    "season": "seizoen",
+    "shop": "Shop"
+  }
+}

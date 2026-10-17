@@ -48,6 +48,11 @@ EVENTS = (
     "prestige_trigger",
     "relic_purchase",
     "offline_earning_collected",
+    "assassinate_triggered",
+    "backstab_triggered",
+    "hvt_spawned",
+    "hvt_completed",
+    "hvt_failed",
 )
 
 
@@ -78,6 +83,11 @@ def test_client_has_no_hardcoded_balance_literals():
     download = (CS_ROOT / "WebGLDownload.cs").read_text(encoding="utf-8")
     assert "PlaytestDownload" in download
     assert "ExternalEval" not in (CS_ROOT / "ExportLogs.cs").read_text(encoding="utf-8")
+
+
+def test_player_settings_enable_both_input_backends():
+    settings = (ROOT / "unity" / "Playtest" / "ProjectSettings" / "ProjectSettings.asset").read_text(encoding="utf-8")
+    assert "activeInputHandler: 2" in settings
 
 
 def test_simulation_reference_reads_the_frozen_baseline():

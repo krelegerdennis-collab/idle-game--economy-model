@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "slots": ["hat", "cape", "weapon"],
+  "items": [
+    {
+      "id": "hat_placeholder",
+      "name": "Plaatshoed",
+      "slot": "hat",
+      "sprite_path": "Sprites/Characters/hat_placeholder.png",
+      "unlock_condition": "prestige_5x",
+      "is_premium": false
+    },
+    {
+      "id": "cape_placeholder",
+      "name": "Plaatscap",
+      "slot": "cape",
+      "sprite_path": "Sprites/Characters/cape_placeholder.png",
+      "unlock_condition": "prestige_5x",
+      "is_premium": false
+    },
+    {
+      "id": "weapon_placeholder",
+      "name": "Plaatswapen",
+      "slot": "weapon",
+      "sprite_path": "Sprites/Characters/weapon_placeholder.png",
+      "unlock_condition": "prestige_5x",
+      "is_premium": true
+    }
+  ]
+}

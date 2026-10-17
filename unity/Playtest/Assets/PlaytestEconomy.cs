@@ -335,10 +335,15 @@ namespace Playtest
 
         public void GrantOffline(double currency)
         {
-            if (currency <= 0.0)
+            GrantCurrency(currency);
+        }
+
+        public void GrantCurrency(double amount)
+        {
+            if (amount <= 0.0)
                 return;
-            Currency += currency;
-            LifetimeCurrency += currency;
+            Currency += amount;
+            LifetimeCurrency += amount;
         }
 
         public void MarkOfferShown(string branchId)
